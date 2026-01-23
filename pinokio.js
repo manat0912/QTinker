@@ -5,7 +5,7 @@ module.exports = {
   description: "Distill and quantize models using TorchAO with intelligent GPU/CPU management",
   icon: path.join(__dirname, "icon.png"),
   menu: async (kernel, info) => {
-    let installed = info.exists("env")
+    let installed = info.exists("app/env")
     let running = {
       install: info.running("install.js"),
       start: info.running("start.js"),

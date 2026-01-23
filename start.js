@@ -9,7 +9,7 @@ module.exports = {
           PYTORCH_ENABLE_MPS_FALLBACK: 1
         },
         message: [
-          "python app.py",
+          "C:\\pinokio\\api\\QTinker\\app\\env\\Scripts\\python.exe app.py",
         ],
         on: [{ "event": "/http:\/\/[0-9.:]+/", "done": true }]
       }

@@ -14,7 +14,8 @@ module.exports = {
       params: {
         venv: "env",
         path: "app",
-        xformers: false
+        xformers: false,
+        triton: true
       }
     }
   }, {

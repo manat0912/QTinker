@@ -1,9 +1,9 @@
 """
 TorchAO quantization configurations.
 """
-from torchao.quantization.configs import (
+from torchao.quantization import (
     Int4WeightOnlyConfig,
-    Int8DynamicConfig,
+    Int8DynamicActivationInt8WeightConfig,
 )
 
 
@@ -20,7 +20,7 @@ def get_quantization_config(quant_type: str):
     if quant_type == "INT4 (weight-only)":
         return Int4WeightOnlyConfig(group_size=128)
     elif quant_type == "INT8 (dynamic)":
-        return Int8DynamicConfig()
+        return Int8DynamicActivationInt8WeightConfig()
     else:
         raise ValueError(f"Unsupported quantization type: {quant_type}")
 
@@ -28,5 +28,5 @@ def get_quantization_config(quant_type: str):
 # Available quantization configs
 AVAILABLE_CONFIGS = {
     "INT4 (weight-only)": Int4WeightOnlyConfig,
-    "INT8 (dynamic)": Int8DynamicConfig,
+    "INT8 (dynamic)": Int8DynamicActivationInt8WeightConfig,
 }

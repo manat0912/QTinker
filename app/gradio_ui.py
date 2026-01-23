@@ -1,12 +1,6 @@
 """
 Full Gradio UI for the Distill & Quantize application.
 """
-import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import gradio as gr
 import torch
 from core.logic import run_pipeline
@@ -151,7 +145,6 @@ def create_ui():
                 lines=20,
                 max_lines=30,
                 interactive=False,
-                show_copy_button=True,
                 placeholder="Logs will appear here..."
             )
         
