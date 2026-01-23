@@ -3,7 +3,7 @@ module.exports = {
   version: "3.7",
   title: "QTinker",
   description: "Distill and quantize models using TorchAO with intelligent GPU/CPU management",
-  icon: path.join(__dirname, "icon.png"),
+  icon: "icon.png",
   menu: async (kernel, info) => {
     let installed = info.exists("app/env")
     let running = {
