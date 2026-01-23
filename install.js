@@ -1,5 +1,13 @@
 module.exports = {
   run: [{
+    when: "{{!kernel.script.exists(cwd, '.git')}}",
+    method: "shell.run",
+    params: {
+      message: [
+        "git clone https://github.com/manat0912/QTinker.git .",
+      ]
+    }
+  }, {
     method: "script.start",
     params: {
       uri: "torch.js",
