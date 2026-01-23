@@ -1,0 +1,5 @@
+torch>=2.0.0
+torchao>=0.1.0
+transformers>=4.30.0
+gradio>=4.0.0
+accelerate>=0.20.0

@@ -1,0 +1,5 @@
+{
+  "name": "QTinker",
+  "description": "Distill and quantize models using TorchAO with intelligent GPU/CPU management",
+  "version": "1.0.0"
+}
