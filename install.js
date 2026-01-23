@@ -23,6 +23,7 @@ module.exports = {
       venv: "env",
       path: ".",
       message: [
+        "uv pip install gradio",
         "uv pip install -r requirements.txt",
       ],
     }
