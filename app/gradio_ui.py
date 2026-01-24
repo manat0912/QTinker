@@ -185,25 +185,7 @@ def get_device_info():
 def create_ui():
     """Create and return the Gradio interface."""
     
-    config = load_config()
-    dist_config = config.get("distillation", {})
-    llm_config = config.get("local_llm", {})
-    
-    # Tkinter helper for file dialog
-    def open_folder_dialog():
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
-            folder_path = filedialog.askdirectory()
-            root.destroy()
-            return folder_path
-        except Exception as e:
-            return f"Error opening dialog: {str(e)}"
-
-    with gr.Blocks(title=GRADIO_TITLE) as demo:
+    with gr.Blocks(theme=GRADIO_THEME, title=GRADIO_TITLE) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
         
