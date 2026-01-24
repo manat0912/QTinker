@@ -32,7 +32,7 @@ def create_theme():
         button_primary_background_fill="linear-gradient(90deg, #00f2fe 0%, #4facfe 100%)",
         button_primary_text_color="white",
         block_title_text_color="white",
-        block_label_text_color="#a0a0bf",
+        block_label_text_color="white",
     )
 
 
@@ -242,13 +242,357 @@ def create_ui():
         margin-bottom: 1rem !important;
     }
     
+    /* Make all text white */
+    * {
+        color: white !important;
+    }
+    
     /* Subtitles and prose text */
-    .prose { color: #cbd5e1 !important; }
+    .prose { color: white !important; }
+    
+    /* General text visibility fixes for dark mode */
+    label, span, .gradio-markdown, .block-info, p {
+        color: white !important;
+    }
+    
+    /* Input fields and dropdowns */
+    input, textarea {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+    }
+    
+    /* Input fields styling */
+    input, textarea {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+    }
+    
+    /* Dropdown styling: match Examples table - dark background + white text */
+    .gradio-dropdown,
+    .gradio-portal,
+    .gradio-popover,
+    .gradio-modal,
+    .gr-examples,
+    .gr-samples {
+        background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important;
+        color: #fff !important;
+    }
+
+    /* Ensure visible button/trigger text */
+    .gradio-dropdown button,
+    .gradio-dropdown .gr-button,
+    .gradio-dropdown .gr-selected,
+    .gradio-dropdown .gr-input {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        padding: 8px 12px !important;
+    }
+
+    .gradio-dropdown input,
+    .gradio-dropdown [role="combobox"],
+    .gradio-dropdown [role="button"] {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+    }
+
+    /* Native select and options */
+    select,
+    .gradio-dropdown select {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        padding: 6px 10px !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+    }
+
+    .gradio-portal [role="listbox"],
+    .gradio-portal [role="option"],
+    .gradio-dropdown [role="listbox"],
+    .gradio-dropdown [role="option"] {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+    }
+
+    .gradio-portal [role="option"][aria-selected="true"],
+    .gradio-portal [role="option"]:hover {
+        background-color: rgba(255,255,255,0.06) !important;
+        color: #fff !important;
+    }
+
+    option {
+        background: #1a1c2e !important;
+        color: #fff !important;
+        padding: 6px 10px !important;
+    }
+
+    option:hover,
+    option:focus,
+    option:checked {
+        background: rgba(255,255,255,0.03) !important;
+        color: #fff !important;
+    }
+
+    /* Popup lists (Gradio sometimes places menus in portals) */
+    .gradio-portal *,
+    .gradio-popover * {
+        background: #1a1c2e !important;
+        color: #fff !important;
+    }
+
+    /* Keep high z-index so popups are above other layers */
+    .gradio-portal,
+    .gradio-popover {
+        z-index: 9999 !important;
+    }
+    
+    /* Checkbox and Radio labels */
+    .gradio-checkbox label, .gradio-radio label {
+        color: white !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Fix for file explorer/browser buttons if needed */
+    button.secondary {
+        color: white !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* Ensure info text is white */
+    .gr-info-text, .info-text, [class*="info"] {
+        color: white !important;
+    }
+    
+    /* Ensure all block labels and descriptions are white */
+    .block-label, .block-info, .gradio-label-small {
+        color: white !important;
+    }
+    
+    /* Examples section styling - dark background */
+    .gr-examples, .gr-samples, .examples {
+        background-color: #0f1016 !important;
+    }
+    
+    /* Table styling for examples */
+    table, tbody, thead, tr, td, th {
+        background-color: #1a1c2e !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+    }
+    
+    th {
+        background-color: #0f1016 !important;
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Red text for specific buttons and options */
+    /* Target Browse System buttons */
+    button {
+        font-size: 0.875rem;
+    }
+    
+    /* Make button text red for Browse and Detect buttons */
+    .gr-button:nth-of-type(1),
+    .gr-button:nth-of-type(2) {
+        color: red !important;
+    }
+    
+    /* Target all buttons and make specific ones red */
+    button[type="button"] {
+        transition: color 0.3s;
+    }
+    
+    /* Use CSS to style buttons with specific content - this is a workaround */
+    /* Red text for distillation mode options */
+    .gradio-radio {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .gradio-radio input[type="radio"] {
+        accent-color: cyan;
+    }
+    
+    .gradio-radio input[type="radio"] ~ label {
+        color: white !important;
+        font-weight: 500;
+    }
+    
+    /* Target button text more aggressively */
+    button span, button div {
+        color: red !important;
+    }
+    
+    /* Target all button content */
+    button {
+        color: red !important;
+    }
+    
+    button * {
+        color: red !important;
+    }
+    
+    /* Specific styling for red buttons */
+    #browse_student_btn,
+    #browse_teacher_btn,
+    #detect_llm_btn {
+        background-color: #1a1c2e !important;
+        border: 2px solid red !important;
+        color: red !important;
+    }
+    
+    #browse_student_btn button,
+    #browse_teacher_btn button,
+    #detect_llm_btn button,
+    #browse_student_btn *,
+    #browse_teacher_btn *,
+    #detect_llm_btn * {
+        color: red !important;
+        background-color: transparent !important;
+    }
+    
+    /* Distillation mode radio options styling */
+    #distillation_mode_radio {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    #distillation_mode_radio label {
+        color: white !important;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        background-color: #1a1c2e !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 10px !important;
+    }
+
+    #distillation_mode_radio label * {
+        color: white !important;
+    }
+
+    #distillation_mode_radio input[type="radio"]:checked + label {
+        background-color: rgba(255,255,255,0.06) !important;
+    }
+
+    /* Dropdown overrides (must be last to beat aggressive button text rules) */
+    .gr-dropdown,
+    .gr-dropdown > div,
+    .gr-dropdown .wrap,
+    .gr-dropdown .input-container,
+    .gr-dropdown .single-value,
+    .gr-dropdown .placeholder,
+    .gr-dropdown input,
+    .gr-dropdown [role="combobox"],
+    [data-testid="dropdown"],
+    [data-testid="dropdown"] * {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+        border-color: rgba(255,255,255,0.12) !important;
+    }
+
+    .gr-dropdown svg,
+    .gr-dropdown svg *,
+    [data-testid="dropdown"] svg,
+    [data-testid="dropdown"] svg * {
+        color: #fff !important;
+        fill: #fff !important;
+    }
+
+    .gradio-portal [role="listbox"],
+    .gradio-portal [role="option"],
+    [role="listbox"],
+    [role="option"] {
+        background-color: #1a1c2e !important;
+        color: #fff !important;
+    }
+
+    [role="option"][aria-selected="true"],
+    [role="option"]:hover {
+        background-color: rgba(255,255,255,0.06) !important;
+        color: #fff !important;
+    }
+    """
+    
+    # JavaScript to ensure dropdown/popover text is visible even when Gradio creates white popups
+    js_code = """
+    <script>
+    function getEffectiveBackgroundColor(el) {
+        try {
+            let node = el;
+            while (node && node !== document.documentElement) {
+                const cs = window.getComputedStyle(node);
+                if (!cs) break;
+                const bg = cs.backgroundColor;
+                if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'hsla(0, 0%, 0%, 0)') {
+                    return bg;
+                }
+                node = node.parentElement;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function applyImportantStyle(el, prop, val) {
+        try { el.style.setProperty(prop, val, 'important'); } catch(e) {}
+    }
+
+    function colorSpecificElements() {
+        try {
+            // Force known Gradio popover/portal containers to dark background + red text
+            document.querySelectorAll('.gradio-portal, .gradio-popover, .gradio-modal, .gr-examples, .gr-samples').forEach(el => {
+                applyImportantStyle(el, 'background-color', '#1a1c2e');
+                applyImportantStyle(el, 'color', 'white');
+                el.querySelectorAll('*').forEach(c => {
+                    applyImportantStyle(c, 'color', 'white');
+                });
+            });
+
+            // For any element whose effective background is white, recolor background and text
+            document.querySelectorAll('body *').forEach(el => {
+                const bg = getEffectiveBackgroundColor(el);
+                if (!bg) return;
+                if (bg === 'rgb(255, 255, 255)' || bg === 'rgba(255, 255, 255, 1)' || bg.toLowerCase() === '#ffffff' || bg.toLowerCase() === 'white') {
+                    applyImportantStyle(el, 'background-color', '#1a1c2e');
+                    applyImportantStyle(el, 'color', 'white');
+                    // apply to children
+                    el.querySelectorAll('*').forEach(c => {
+                        applyImportantStyle(c, 'color', 'white');
+                        const childBg = getEffectiveBackgroundColor(c);
+                        if (childBg && (childBg === 'rgb(255, 255, 255)' || childBg === 'rgba(255, 255, 255, 1)')) {
+                            applyImportantStyle(c, 'background-color', '#1a1c2e');
+                        }
+                    });
+                }
+            });
+        } catch (e) {
+            console.warn('colorSpecificElements error', e);
+        }
+    }
+
+    window.addEventListener('load', colorSpecificElements);
+    setTimeout(colorSpecificElements, 200);
+    setTimeout(colorSpecificElements, 600);
+    setTimeout(colorSpecificElements, 1200);
+    setTimeout(colorSpecificElements, 2000);
+
+    const observer = new MutationObserver(() => colorSpecificElements());
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    window.fixGradioColors = colorSpecificElements;
+    </script>
     """
 
     with gr.Blocks(theme=custom_theme, title=GRADIO_TITLE, css=css) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
+        
+        # Add custom JavaScript for button and radio coloring
+        gr.HTML(js_code)
         
         # Device information panel
         with gr.Row():
@@ -264,7 +608,7 @@ def create_ui():
                     info="Path to the model you want to quantize/distill (e.g. HuggingFace folder)"
                 )
             with gr.Column(scale=1):
-                browse_student_btn = gr.Button("📂 Browse System", variant="secondary")
+                browse_student_btn = gr.Button("📂 Browse System", variant="secondary", elem_id="browse_student_btn")
             
             with gr.Column(scale=2):
                 model_type = gr.Dropdown(
@@ -287,7 +631,8 @@ def create_ui():
                 choices=["placeholder", "teacher_student"],
                 value=dist_config.get("mode", "placeholder"),
                 label="Distillation Mode",
-                info="Placeholder: No training | Teacher-Student: Real KD training"
+                info="Placeholder: No training | Teacher-Student: Real KD training",
+                elem_id="distillation_mode_radio"
             )
         
         with gr.Row(visible=True) as teacher_row:
@@ -299,7 +644,7 @@ def create_ui():
                     info="Required for teacher-student mode"
                 )
             with gr.Column(scale=1):
-                browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary")
+                browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary", elem_id="browse_teacher_btn")
 
             with gr.Column(scale=2):
                 teacher_model_type = gr.Dropdown(
@@ -360,7 +705,7 @@ def create_ui():
         
         # Detect button for local LLM
         with gr.Row():
-            detect_llm_btn = gr.Button("Detect Local LLM", variant="secondary")
+            detect_llm_btn = gr.Button("Detect Local LLM", variant="secondary", elem_id="detect_llm_btn")
             llm_status = gr.Markdown("")
         
         def detect_llm():
