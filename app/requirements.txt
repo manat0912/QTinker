@@ -1,2 +1,6 @@
 transformers>=4.30.0
 accelerate>=0.20.0
+torchao>=0.1.0
+gradio>=4.0.0
+pyyaml>=6.0
+requests>=2.31.0
