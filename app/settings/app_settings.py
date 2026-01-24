@@ -23,8 +23,39 @@ DEFAULT_MODEL_TYPE = "HuggingFace folder"
 DEFAULT_QUANT_TYPE = "INT8 (dynamic)"
 
 # Supported model types
+# Supported model types
 MODEL_TYPES = [
-    "HuggingFace folder",
+    "HuggingFace Transformers (NLP/Vision/Audio)",
+    "Diffusers (Image/Video/Audio Generation)",
+    "Sentence-Transformers (Embeddings)",
+    "Tokenizers (Rust/Python)",
+    "Accelerate (Distributed)",
+    "PEFT (LoRA/QLoRA)",
+    "TRL (RLHF/DPO)",
+    "ONNX Runtime",
+    "TensorRT / TensorRT-LLM",
+    "GGML / llama.cpp",
+    "vLLM",
+    "MLX (Apple Silicon)",
+    "OpenVINO",
+    "OpenCV",
+    "Pillow",
+    "PyTorch Vision",
+    "SAM / Segment Anything",
+    "ControlNet",
+    "Torchaudio",
+    "Whisper / WhisperX",
+    "RVC / So-VITS",
+    "Coqui TTS",
+    "CLIP",
+    "BLIP / BLIP-2",
+    "LLaVA",
+    "OpenCLIP",
+    "SAM2",
+    "HuggingFace Datasets",
+    "Lightning / Fabric",
+    "Weights & Biases",
+    "DeepSpeed",
     "PyTorch .pt/.bin file",
 ]
 

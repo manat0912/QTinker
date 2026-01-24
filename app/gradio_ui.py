@@ -189,6 +189,20 @@ def create_ui():
     dist_config = config.get("distillation", {})
     llm_config = config.get("local_llm", {})
     
+    # Tkinter helper for file dialog
+    def open_folder_dialog():
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            folder_path = filedialog.askdirectory()
+            root.destroy()
+            return folder_path
+        except Exception as e:
+            return f"Error opening dialog: {str(e)}"
+
     with gr.Blocks(theme=GRADIO_THEME, title=GRADIO_TITLE) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
@@ -197,25 +211,33 @@ def create_ui():
         with gr.Row():
             device_info = gr.Markdown(get_device_info())
         
-        # Model Configuration Section
-        gr.Markdown("## Model Configuration")
+        # 1. Input Model Selection Section
+        gr.Markdown("## Input Model Selection (Random/Student Model)")
         with gr.Row():
-            with gr.Column(scale=2):
+            with gr.Column(scale=3):
                 model_path = gr.Textbox(
-                    label="Student Model Path",
-                    placeholder="Enter path to student model folder or file...",
-                    info="Path to HuggingFace model folder or PyTorch .pt/.bin file"
+                    label="Input Model Path (Target for Processing)",
+                    placeholder="Select a folder path...",
+                    info="Path to the model you want to quantize/distill (e.g. HuggingFace folder)"
                 )
-            
             with gr.Column(scale=1):
+                browse_student_btn = gr.Button("📂 Browse System", variant="secondary")
+            
+            with gr.Column(scale=2):
                 model_type = gr.Dropdown(
                     choices=MODEL_TYPES,
                     value=DEFAULT_MODEL_TYPE,
-                    label="Student Model Type",
-                    info="Type of student model to load"
+                    label="Input Model Library/Type",
+                    info="Select the library or type of the model"
                 )
+
+        # Wire browse button
+        browse_student_btn.click(
+            fn=open_folder_dialog,
+            outputs=model_path
+        )
         
-        # Distillation Configuration Section
+        # 2. Knowledge Distillation Configuration Section
         gr.Markdown("## Knowledge Distillation Configuration")
         with gr.Row():
             distillation_mode = gr.Radio(
@@ -226,21 +248,29 @@ def create_ui():
             )
         
         with gr.Row(visible=True) as teacher_row:
-            with gr.Column(scale=2):
+            with gr.Column(scale=3):
                 teacher_model_path = gr.Textbox(
                     label="Teacher Model Path",
-                    placeholder="Enter path to teacher model...",
+                    placeholder="Select a folder path...",
                     value=dist_config.get("teacher_model_path", ""),
                     info="Required for teacher-student mode"
                 )
-            
             with gr.Column(scale=1):
+                browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary")
+
+            with gr.Column(scale=2):
                 teacher_model_type = gr.Dropdown(
                     choices=MODEL_TYPES,
                     value=dist_config.get("teacher_type", DEFAULT_MODEL_TYPE),
                     label="Teacher Model Type"
                 )
         
+        # Wire teacher browse button
+        browse_teacher_btn.click(
+            fn=open_folder_dialog,
+            outputs=teacher_model_path
+        )
+
         # Show/hide teacher inputs based on mode
         def toggle_teacher_visibility(mode):
             return gr.update(visible=(mode == "teacher_student"))
@@ -251,7 +281,7 @@ def create_ui():
             outputs=[teacher_row]
         )
         
-        # Local LLM Configuration Section
+        # 3. Local LLM Configuration Section
         gr.Markdown("## Local LLM Integration (Optional)")
         with gr.Row():
             use_local_llm = gr.Checkbox(
@@ -296,7 +326,7 @@ def create_ui():
         
         detect_llm_btn.click(fn=detect_llm, outputs=[llm_status])
         
-        # Quantization Configuration Section
+        # 4. Quantization Configuration Section
         gr.Markdown("## Quantization Configuration")
         with gr.Row():
             quant_type = gr.Dropdown(
@@ -348,8 +378,8 @@ def create_ui():
         gr.Markdown("## Examples")
         gr.Examples(
             examples=[
-                ["microsoft/phi-2", "HuggingFace folder", "INT8 (dynamic)", "placeholder", "", "HuggingFace folder"],
-                ["meta-llama/Llama-2-7b-hf", "HuggingFace folder", "INT4 (weight-only)", "teacher_student", "meta-llama/Llama-2-13b-hf", "HuggingFace folder"],
+                ["microsoft/phi-2", "HuggingFace Transformers (NLP/Vision/Audio)", "INT8 (dynamic)", "placeholder", "", "HuggingFace Transformers (NLP/Vision/Audio)"],
+                ["meta-llama/Llama-2-7b-hf", "HuggingFace Transformers (NLP/Vision/Audio)", "INT4 (weight-only)", "teacher_student", "meta-llama/Llama-2-13b-hf", "HuggingFace Transformers (NLP/Vision/Audio)"],
             ],
             inputs=[model_path, model_type, quant_type, distillation_mode, teacher_model_path, teacher_model_type],
         )
