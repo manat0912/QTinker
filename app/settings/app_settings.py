@@ -25,6 +25,7 @@ DEFAULT_QUANT_TYPE = "INT8 (dynamic)"
 # Supported model types
 # Supported model types
 MODEL_TYPES = [
+    "HuggingFace folder",
     "HuggingFace Transformers (NLP/Vision/Audio)",
     "Diffusers (Image/Video/Audio Generation)",
     "Sentence-Transformers (Embeddings)",
@@ -81,6 +82,7 @@ TORCHAO_CONFIGS = {
 GRADIO_TITLE = "Distill & Quantize (TorchAO)"
 GRADIO_DESCRIPTION = "Distill and quantize models using TorchAO"
 GRADIO_THEME = "soft"
+
 
 # Device management settings
 MIN_VRAM_GB = 2.0  # Minimum VRAM required to use GPU (GB)

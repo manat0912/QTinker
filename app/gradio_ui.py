@@ -203,7 +203,7 @@ def create_ui():
         except Exception as e:
             return f"Error opening dialog: {str(e)}"
 
-    with gr.Blocks(theme=GRADIO_THEME, title=GRADIO_TITLE) as demo:
+    with gr.Blocks(title=GRADIO_TITLE) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
         
@@ -389,4 +389,4 @@ def create_ui():
 
 if __name__ == "__main__":
     demo = create_ui()
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, theme=GRADIO_THEME)
