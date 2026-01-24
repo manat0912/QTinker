@@ -1,0 +1,24 @@
+ui:
+  theme: "soft"
+  title: "Distill & Quantize App"
+  allow_raw_pt: true
+
+distillation:
+  enabled: true
+  mode: "placeholder"  # placeholder | teacher_student
+  teacher_model_path: ""  # HF folder or .pt path
+  teacher_type: "HuggingFace folder"  # or "PyTorch .pt/.bin file"
+  epochs: 1
+  batch_size: 4
+  max_steps: 100
+  learning_rate: 5e-5
+  temperature: 1.0  # Temperature for KL divergence
+  alpha: 0.5  # Weight for KL loss vs CE loss (0.0 = only KL, 1.0 = only CE)
+
+local_llm:
+  enabled: false
+  provider: "auto"  # auto | lm_studio | ollama | custom
+  base_url: "http://localhost:1234/v1"  # LM Studio default
+  ollama_url: "http://localhost:11434"  # Ollama default
+  api_key: ""  # Optional API key
+  model_name: ""  # Model name for Ollama or custom

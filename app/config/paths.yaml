@@ -1,0 +1,4 @@
+distilled_dir: "outputs/distilled"
+quantized_dir: "outputs/quantized"
+data_dir: "data"
+train_prompts: "data/train_prompts.txt"

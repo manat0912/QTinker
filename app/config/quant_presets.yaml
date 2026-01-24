@@ -1,0 +1,10 @@
+int4:
+  group_size: 128
+  version: "default"
+
+int8:
+  version: "default"
+
+fp8:
+  version: "default"
+  calibration_data: null  # Optional calibration dataset path

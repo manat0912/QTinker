@@ -1,0 +1,10 @@
+Explain quantum computing in simple terms.
+Write a short story about a dragon.
+Summarize the causes of World War I.
+Describe how neural networks learn.
+What is the difference between supervised and unsupervised learning?
+Explain the concept of attention in transformers.
+Write a poem about artificial intelligence.
+How does gradient descent work?
+Describe the process of model distillation.
+What are the benefits of quantization?
