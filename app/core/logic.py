@@ -15,6 +15,7 @@ from torchao.quantization import quantize_
 from configs.torchao_configs import get_quantization_config
 from settings.app_settings import DISTILLED_DIR, QUANTIZED_DIR, AUTO_DEVICE_SWITCHING, MIN_VRAM_GB
 from core.device_manager import get_device_manager
+from core.distillation import distill_model as distill_model_new
 
 
 def load_model(model_path: str, model_type: str, log_fn=None, device_manager=None):
@@ -138,12 +139,13 @@ def load_model(model_path: str, model_type: str, log_fn=None, device_manager=Non
             raise
 
 
-def distill_model(model, log_fn=None, device_manager=None):
+def distill_model(model, tokenizer, log_fn=None, device_manager=None):
     """
-    Distill a model (placeholder implementation) with device management.
+    Distill a model using the new distillation module.
     
     Args:
         model: The model to distill
+        tokenizer: Model tokenizer
         log_fn: Optional logging function
         device_manager: Optional DeviceManager instance
         
@@ -153,34 +155,8 @@ def distill_model(model, log_fn=None, device_manager=None):
     if device_manager is None:
         device_manager = get_device_manager(log_fn)
     
-    if log_fn:
-        log_fn("Running distillation placeholder (no real training)...")
-        log_fn(f"Distillation running on: {device_manager.get_device_name()}")
-    
-    # Ensure model is on the right device
-    current_device = next(model.parameters()).device
-    if current_device != device_manager.get_device():
-        if log_fn:
-            log_fn(f"Moving model to {device_manager.get_device_name()} for distillation...")
-        try:
-            model = device_manager.move_model_to_device(model)
-        except RuntimeError as e:
-            if "out of memory" in str(e).lower():
-                if log_fn:
-                    log_fn("⚠️  GPU OOM during distillation. Using CPU...")
-                device_manager.switch_to_cpu()
-                model = model.to(torch.device("cpu"))
-    
-    # Placeholder distillation logic
-    # Here you could:
-    # - load a teacher model
-    # - run a few KD steps
-    # - return the student
-    
-    # Clear cache after distillation
-    device_manager.clear_cache()
-    
-    return model
+    # Use the new distillation module
+    return distill_model_new(model, tokenizer, device_manager, log_fn)
 
 
 def save_model(model, tokenizer, out_dir, log_fn=None, label="model"):
@@ -298,7 +274,7 @@ def run_pipeline(model_path: str, model_type: str, quant_type: str, log_fn=None)
         # 2. Distill (with device management)
         if log_fn:
             log_fn("-" * 50)
-        distilled_model = distill_model(model, log_fn, device_manager)
+        distilled_model = distill_model(model, tokenizer, log_fn, device_manager)
         
         # Clear memory before saving
         device_manager.clear_cache()
