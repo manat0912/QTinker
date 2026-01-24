@@ -32,6 +32,7 @@ MODEL_TYPES = [
 QUANT_TYPES = [
     "INT4 (weight-only)",
     "INT8 (dynamic)",
+    "FP8",
 ]
 
 # TorchAO quantization configs
