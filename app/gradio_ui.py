@@ -1,10 +1,13 @@
 """
-Full Gradio UI for the Distill & Quantize application.
+Full Gradio UI for the Distill & Quantize application with Knowledge Distillation and Local LLM support.
 """
 import gradio as gr
 import torch
+import yaml
+from pathlib import Path
 from core.logic import run_pipeline
 from core.device_manager import get_device_manager
+from core.local_llm import get_local_llm_client
 from settings.app_settings import (
     MODEL_TYPES,
     QUANT_TYPES,
@@ -32,19 +35,71 @@ class LogOutput:
         return ""
 
 
+def load_config():
+    """Load settings from YAML config."""
+    config_path = Path(__file__).parent / "config" / "settings.yaml"
+    if config_path.exists():
+        with open(config_path, "r") as f:
+            return yaml.safe_load(f)
+    return {}
+
+
+def save_config(config: dict):
+    """Save settings to YAML config."""
+    config_path = Path(__file__).parent / "config" / "settings.yaml"
+    config_path.parent.mkdir(exist_ok=True)
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+
+def detect_local_llm():
+    """Detect available local LLM providers."""
+    from core.local_llm import get_local_llm_client
+    client = get_local_llm_client()
+    provider = client.detect_provider()
+    models = client.get_available_models() if provider else []
+    return provider or "None detected", ", ".join(models[:5]) if models else "No models found"
+
+
+def get_local_llm_client_instance():
+    """Get local LLM client instance."""
+    from core.local_llm import get_local_llm_client as get_client
+    config = load_config()
+    llm_config = config.get("local_llm", {})
+    return get_client(
+        provider=llm_config.get("provider", "auto"),
+        base_url=llm_config.get("base_url", "http://localhost:1234/v1"),
+        ollama_url=llm_config.get("ollama_url", "http://localhost:11434"),
+        api_key=llm_config.get("api_key", ""),
+        model_name=llm_config.get("model_name", "")
+    )
+
+
 def process_model(
     model_path: str,
     model_type: str,
     quant_type: str,
+    distillation_mode: str,
+    teacher_model_path: str,
+    teacher_model_type: str,
+    use_local_llm: bool,
+    local_llm_provider: str,
+    local_llm_url: str,
     progress=gr.Progress()
 ):
     """
     Process the model through distillation and quantization.
     
     Args:
-        model_path: Path to the model
+        model_path: Path to the student model
         model_type: Type of model
         quant_type: Type of quantization
+        distillation_mode: Distillation mode (placeholder or teacher_student)
+        teacher_model_path: Path to teacher model (if teacher_student mode)
+        teacher_model_type: Type of teacher model
+        use_local_llm: Whether to use local LLM
+        local_llm_provider: Local LLM provider
+        local_llm_url: Local LLM URL
         progress: Gradio progress tracker
         
     Returns:
@@ -59,6 +114,33 @@ def process_model(
     try:
         if not model_path or not model_path.strip():
             return "ERROR: Please provide a model path."
+        
+        # Update config with UI settings
+        config = load_config()
+        if "distillation" not in config:
+            config["distillation"] = {}
+        
+        config["distillation"]["mode"] = distillation_mode
+        config["distillation"]["enabled"] = True
+        
+        if distillation_mode == "teacher_student":
+            if not teacher_model_path or not teacher_model_path.strip():
+                return "ERROR: Teacher model path is required for teacher-student distillation."
+            config["distillation"]["teacher_model_path"] = teacher_model_path.strip()
+            config["distillation"]["teacher_type"] = teacher_model_type
+        
+        if "local_llm" not in config:
+            config["local_llm"] = {}
+        
+        config["local_llm"]["enabled"] = use_local_llm
+        if use_local_llm:
+            config["local_llm"]["provider"] = local_llm_provider
+            if local_llm_provider == "lm_studio" or local_llm_provider == "custom":
+                config["local_llm"]["base_url"] = local_llm_url
+            elif local_llm_provider == "ollama":
+                config["local_llm"]["ollama_url"] = local_llm_url
+        
+        save_config(config)
         
         # Run the pipeline
         distilled_path, quantized_path = run_pipeline(
@@ -77,6 +159,8 @@ def process_model(
     except Exception as e:
         error_msg = f"ERROR: {str(e)}"
         log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
         return log_output.log("")
 
 
@@ -101,6 +185,10 @@ def get_device_info():
 def create_ui():
     """Create and return the Gradio interface."""
     
+    config = load_config()
+    dist_config = config.get("distillation", {})
+    llm_config = config.get("local_llm", {})
+    
     with gr.Blocks(theme=GRADIO_THEME, title=GRADIO_TITLE) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
@@ -109,11 +197,13 @@ def create_ui():
         with gr.Row():
             device_info = gr.Markdown(get_device_info())
         
+        # Model Configuration Section
+        gr.Markdown("## Model Configuration")
         with gr.Row():
             with gr.Column(scale=2):
                 model_path = gr.Textbox(
-                    label="Model Path",
-                    placeholder="Enter path to model folder or file...",
+                    label="Student Model Path",
+                    placeholder="Enter path to student model folder or file...",
                     info="Path to HuggingFace model folder or PyTorch .pt/.bin file"
                 )
             
@@ -121,24 +211,110 @@ def create_ui():
                 model_type = gr.Dropdown(
                     choices=MODEL_TYPES,
                     value=DEFAULT_MODEL_TYPE,
-                    label="Model Type",
-                    info="Type of model to load"
+                    label="Student Model Type",
+                    info="Type of student model to load"
                 )
         
+        # Distillation Configuration Section
+        gr.Markdown("## Knowledge Distillation Configuration")
+        with gr.Row():
+            distillation_mode = gr.Radio(
+                choices=["placeholder", "teacher_student"],
+                value=dist_config.get("mode", "placeholder"),
+                label="Distillation Mode",
+                info="Placeholder: No training | Teacher-Student: Real KD training"
+            )
+        
+        with gr.Row(visible=True) as teacher_row:
+            with gr.Column(scale=2):
+                teacher_model_path = gr.Textbox(
+                    label="Teacher Model Path",
+                    placeholder="Enter path to teacher model...",
+                    value=dist_config.get("teacher_model_path", ""),
+                    info="Required for teacher-student mode"
+                )
+            
+            with gr.Column(scale=1):
+                teacher_model_type = gr.Dropdown(
+                    choices=MODEL_TYPES,
+                    value=dist_config.get("teacher_type", DEFAULT_MODEL_TYPE),
+                    label="Teacher Model Type"
+                )
+        
+        # Show/hide teacher inputs based on mode
+        def toggle_teacher_visibility(mode):
+            return gr.update(visible=(mode == "teacher_student"))
+        
+        distillation_mode.change(
+            fn=toggle_teacher_visibility,
+            inputs=[distillation_mode],
+            outputs=[teacher_row]
+        )
+        
+        # Local LLM Configuration Section
+        gr.Markdown("## Local LLM Integration (Optional)")
+        with gr.Row():
+            use_local_llm = gr.Checkbox(
+                label="Use Local LLM",
+                value=llm_config.get("enabled", False),
+                info="Connect to LM Studio, Ollama, or other local LLM servers"
+            )
+        
+        with gr.Row(visible=llm_config.get("enabled", False)) as llm_row:
+            with gr.Column():
+                local_llm_provider = gr.Dropdown(
+                    choices=["auto", "lm_studio", "ollama", "custom"],
+                    value=llm_config.get("provider", "auto"),
+                    label="LLM Provider",
+                    info="Auto-detect or specify provider"
+                )
+                
+                local_llm_url = gr.Textbox(
+                    label="LLM Server URL",
+                    value=llm_config.get("base_url", "http://localhost:1234/v1"),
+                    info="Base URL for LM Studio (port 1234) or Ollama (port 11434)"
+                )
+        
+        # Show/hide LLM inputs based on checkbox
+        def toggle_llm_visibility(enabled):
+            return gr.update(visible=enabled)
+        
+        use_local_llm.change(
+            fn=toggle_llm_visibility,
+            inputs=[use_local_llm],
+            outputs=[llm_row]
+        )
+        
+        # Detect button for local LLM
+        with gr.Row():
+            detect_llm_btn = gr.Button("Detect Local LLM", variant="secondary")
+            llm_status = gr.Markdown("")
+        
+        def detect_llm():
+            provider, models = detect_local_llm()
+            return f"**Detected Provider:** {provider}\n**Available Models:** {models}"
+        
+        detect_llm_btn.click(fn=detect_llm, outputs=[llm_status])
+        
+        # Quantization Configuration Section
+        gr.Markdown("## Quantization Configuration")
         with gr.Row():
             quant_type = gr.Dropdown(
                 choices=QUANT_TYPES,
                 value=DEFAULT_QUANT_TYPE,
                 label="Quantization Type",
-                info="TorchAO quantization method"
+                info="INT4 (weight-only), INT8 (dynamic), or FP8"
             )
-            
+        
+        # Run Button
+        with gr.Row():
             run_btn = gr.Button(
                 "Run Distill + Quantize",
                 variant="primary",
                 size="lg"
             )
         
+        # Log Output
         with gr.Row():
             log_output = gr.Textbox(
                 label="Live Log Output",
@@ -151,7 +327,17 @@ def create_ui():
         # Connect the button to the processing function
         run_btn.click(
             fn=process_model,
-            inputs=[model_path, model_type, quant_type],
+            inputs=[
+                model_path,
+                model_type,
+                quant_type,
+                distillation_mode,
+                teacher_model_path,
+                teacher_model_type,
+                use_local_llm,
+                local_llm_provider,
+                local_llm_url
+            ],
             outputs=[log_output]
         ).then(
             fn=lambda: get_device_info(),
@@ -162,10 +348,10 @@ def create_ui():
         gr.Markdown("## Examples")
         gr.Examples(
             examples=[
-                ["microsoft/phi-2", "HuggingFace folder", "INT8 (dynamic)"],
-                ["meta-llama/Llama-2-7b-hf", "HuggingFace folder", "INT4 (weight-only)"],
+                ["microsoft/phi-2", "HuggingFace folder", "INT8 (dynamic)", "placeholder", "", "HuggingFace folder"],
+                ["meta-llama/Llama-2-7b-hf", "HuggingFace folder", "INT4 (weight-only)", "teacher_student", "meta-llama/Llama-2-13b-hf", "HuggingFace folder"],
             ],
-            inputs=[model_path, model_type, quant_type],
+            inputs=[model_path, model_type, quant_type, distillation_mode, teacher_model_path, teacher_model_type],
         )
     
     return demo
