@@ -226,6 +226,24 @@ def create_ui():
     css = """
     body { background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important; }
     .gradio-container { background: transparent !important; }
+    
+    /* Typography improvements */
+    h1, h2, h3, h4, h5, h6 { 
+        color: white !important; 
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em !important;
+    }
+    
+    /* Make the title huge and clean like the reference */
+    h1 {
+        font-size: 3.5rem !important;
+        text-align: center !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Subtitles and prose text */
+    .prose { color: #cbd5e1 !important; }
     """
 
     with gr.Blocks(theme=custom_theme, title=GRADIO_TITLE, css=css) as demo:
