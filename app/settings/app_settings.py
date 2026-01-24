@@ -81,7 +81,7 @@ TORCHAO_CONFIGS = {
 # UI settings
 GRADIO_TITLE = "Distill & Quantize (TorchAO)"
 GRADIO_DESCRIPTION = "Distill and quantize models using TorchAO"
-GRADIO_THEME = "soft"
+
 
 
 # Device management settings

@@ -15,8 +15,25 @@ from settings.app_settings import (
     DEFAULT_QUANT_TYPE,
     GRADIO_TITLE,
     GRADIO_DESCRIPTION,
-    GRADIO_THEME,
+    GRADIO_TITLE,
+    GRADIO_DESCRIPTION,
 )
+
+
+def create_theme():
+    """Create a custom dark theme with gradient background."""
+    return gr.themes.Base(
+        primary_hue=gr.themes.colors.cyan,
+        neutral_hue=gr.themes.colors.slate,
+        font=gr.themes.GoogleFont("Inter"),
+    ).set(
+        body_background_fill="radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%)",
+        block_background_fill="#1a1c2e",
+        button_primary_background_fill="linear-gradient(90deg, #00f2fe 0%, #4facfe 100%)",
+        button_primary_text_color="white",
+        block_title_text_color="white",
+        block_label_text_color="#a0a0bf",
+    )
 
 
 class LogOutput:
@@ -204,7 +221,14 @@ def create_ui():
         except Exception as e:
             return f"Error opening dialog: {str(e)}"
 
-    with gr.Blocks(title=GRADIO_TITLE) as demo:
+    custom_theme = create_theme()
+    
+    css = """
+    body { background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important; }
+    .gradio-container { background: transparent !important; }
+    """
+
+    with gr.Blocks(theme=custom_theme, title=GRADIO_TITLE, css=css) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
         
@@ -390,4 +414,4 @@ def create_ui():
 
 if __name__ == "__main__":
     demo = create_ui()
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, theme=GRADIO_THEME)
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
