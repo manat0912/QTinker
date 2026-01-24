@@ -185,6 +185,11 @@ def get_device_info():
 def create_ui():
     """Create and return the Gradio interface."""
     
+    # Load initial config
+    config = load_config()
+    dist_config = config.get("distillation", {})
+    llm_config = config.get("local_llm", {})
+
     # Tkinter helper for file dialog
     def open_folder_dialog():
         try:
