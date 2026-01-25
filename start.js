@@ -6,17 +6,21 @@ module.exports = {
         path: "app",
         venv: "env",
         env: {
-          PYTORCH_ENABLE_MPS_FALLBACK: 1
+          PYTORCH_ENABLE_MPS_FALLBACK: 1,
+          PINOKIO_ROOT: "{{cwd}}/../.."
         },
         message: [
-          "C:\\pinokio\\api\\QTinker\\app\\env\\Scripts\\python.exe app.py",
+          "python app.py",
         ],
-        on: [{ "event": "/http:\/\/[0-9.:]+/", "done": true }]
+        on: [{
+          event: "/(http:\\/\\/[0-9.:]+)/",
+          done: true
+        }]
       }
     }, {
-      "method": "local.set",
-      "params": {
-        "url": "{{input.event[0]}}"
+      method: "local.set",
+      params: {
+        url: "{{input.event[1]}}"
       }
     }
   ]

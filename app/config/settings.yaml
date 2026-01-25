@@ -5,14 +5,14 @@ distillation:
   epochs: 1
   learning_rate: 5e-5
   max_steps: 100
-  mode: placeholder
-  teacher_model_path: C:\pinokio\api\PersonaLiveStream\app\pretrained_weights\sd-image-variations-diffusers\unet\diffusion_pytorch_model.bin
-  teacher_type: PyTorch .pt/.bin file
+  mode: teacher_student
+  teacher_model_path: C:/pinokio/api/QTinker/app/bert_models/bert-mini
+  teacher_type: HuggingFace Datasets
   temperature: 1.0
 local_llm:
   api_key: ''
   base_url: http://localhost:1234/v1
-  enabled: true
+  enabled: false
   model_name: ''
   ollama_url: http://localhost:11434
   provider: lm_studio
