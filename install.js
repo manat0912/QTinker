@@ -1,6 +1,5 @@
 module.exports = {
   run: [{
-    when: "{{!kernel.script.exists(cwd, '.git')}}",
     method: "shell.run",
     params: {
       message: [
@@ -27,6 +26,18 @@ module.exports = {
         "uv pip install gradio",
         "uv pip install -r requirements.txt",
       ],
+    }
+  }, {
+    method: "shell.run",
+    params: {
+      venv: "env",
+      path: "app",
+      message: [
+        "mkdir bert_models",
+        "git clone --depth 1 https://github.com/google-research/bert bert_models/google_research_bert",
+        "git clone --depth 1 https://github.com/huawei-noah/Pretrained-Language-Model bert_models/huawei_noah_bert",
+        "python download_models.py"
+      ]
     }
   }, {
     method: "notify",

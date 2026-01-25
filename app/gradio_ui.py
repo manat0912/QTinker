@@ -15,10 +15,11 @@ from settings.app_settings import (
     DEFAULT_QUANT_TYPE,
     GRADIO_TITLE,
     GRADIO_DESCRIPTION,
-    GRADIO_TITLE,
-    GRADIO_DESCRIPTION,
 )
 
+# New import for BERT distillation
+from run_distillation import run_distillation_pipeline
+from registry import STRATEGY_REGISTRY
 
 def create_theme():
     """Create a custom dark theme with gradient background."""
@@ -30,9 +31,10 @@ def create_theme():
         body_background_fill="radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%)",
         block_background_fill="#1a1c2e",
         button_primary_background_fill="linear-gradient(90deg, #00f2fe 0%, #4facfe 100%)",
-        button_primary_text_color="white",
-        block_title_text_color="white",
-        block_label_text_color="white",
+        button_primary_text_color="red",
+        block_title_text_color="red",
+        block_label_text_color="red",
+        input_background_fill="rgba(30, 41, 59, 0.8)",
     )
 
 
@@ -180,6 +182,39 @@ def process_model(
         log_output.log(traceback.format_exc())
         return log_output.log("")
 
+def run_bert_distillation_process(
+    teacher_path, student_path, custom_path, strategy, quant_type, progress=gr.Progress()
+):
+    """Wrapper for running the BERT distillation pipeline from Gradio."""
+    log_output = LogOutput()
+    
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not teacher_path or not student_path:
+            return "ERROR: Teacher and Student model paths are required."
+
+        run_distillation_pipeline(
+            teacher_model_path=teacher_path,
+            student_model_path=student_path,
+            custom_model_path=custom_path if custom_path else None,
+            strategy_name=strategy,
+            output_dir="bert_distilled_models",
+            quantization_type=quant_type if quant_type != "None" else None,
+            log_fn=log_fn
+        )
+        log_output.log("\n=== BERT Distillation SUCCESS ===")
+        return log_output.log("")
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log("")
+
 
 def get_device_info():
     """Get current device information for display."""
@@ -226,552 +261,195 @@ def create_ui():
     css = """
     body { background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important; }
     .gradio-container { background: transparent !important; }
+    h1 { font-size: 3.5rem !important; text-align: center !important; margin-bottom: 1rem !important; }
     
-    /* Typography improvements */
-    h1, h2, h3, h4, h5, h6 { 
-        color: white !important; 
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.02em !important;
+    /* GLOBAL TEXT RED (Nuclear Option) - Expanded to strong/em/buttons */
+    .gradio-container, .prose, h1, h2, h3, h4, h5, p, label, .block-label, span, div, li, td, strong, em, b, i, th { 
+        color: red !important; 
     }
     
-    /* Make the title huge and clean like the reference */
-    h1 {
-        font-size: 3.5rem !important;
-        text-align: center !important;
-        margin-bottom: 1rem !important;
+    /* --- INPUTS & TEXTAREAS --- */
+    input, textarea { 
+        background-color: white !important; 
+        color: red !important; 
+        border: 1px solid red !important;
+    }
+    input::placeholder, textarea::placeholder { color: rgba(255, 0, 0, 0.5) !important; }
+    
+    /* --- DROPDOWNS & SELECTS --- */
+    /* Container for the selected value and the options list */
+    .wrap-inner, .dropdown-wrapper, .options, .single-select, .token, .item {
+         background-color: white !important;
+         color: red !important;
+         border-color: red !important;
     }
     
-    /* Make all text white */
-    * {
-        color: white !important;
-    }
-    
-    /* Subtitles and prose text */
-    .prose { color: white !important; }
-    
-    /* General text visibility fixes for dark mode */
-    label, span, .gradio-markdown, .block-info, p {
-        color: white !important;
-    }
-    
-    /* Input fields and dropdowns */
-    input, textarea {
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        color: white !important;
-    }
-    
-    /* Input fields styling */
-    input, textarea {
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        color: white !important;
-    }
-    
-    /* Dropdown styling: match Examples table - dark background + white text */
-    .gradio-dropdown,
-    .gradio-portal,
-    .gradio-popover,
-    .gradio-modal,
-    .gr-examples,
-    .gr-samples {
-        background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important;
-        color: #fff !important;
-    }
-
-    /* Ensure visible button/trigger text */
-    .gradio-dropdown button,
-    .gradio-dropdown .gr-button,
-    .gradio-dropdown .gr-selected,
-    .gradio-dropdown .gr-input {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        padding: 8px 12px !important;
-    }
-
-    .gradio-dropdown input,
-    .gradio-dropdown [role="combobox"],
-    .gradio-dropdown [role="button"] {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-    }
-
-    /* Native select and options */
-    select,
-    .gradio-dropdown select {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        padding: 6px 10px !important;
-        -webkit-appearance: none !important;
-        -moz-appearance: none !important;
-        appearance: none !important;
-    }
-
-    .gradio-portal [role="listbox"],
-    .gradio-portal [role="option"],
-    .gradio-dropdown [role="listbox"],
-    .gradio-dropdown [role="option"] {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-    }
-
-    .gradio-portal [role="option"][aria-selected="true"],
-    .gradio-portal [role="option"]:hover {
-        background-color: rgba(255,255,255,0.06) !important;
-        color: #fff !important;
-    }
-
-    option {
-        background: #1a1c2e !important;
-        color: #fff !important;
-        padding: 6px 10px !important;
-    }
-
-    option:hover,
-    option:focus,
-    option:checked {
-        background: rgba(255,255,255,0.03) !important;
-        color: #fff !important;
-    }
-
-    /* Popup lists (Gradio sometimes places menus in portals) */
-    .gradio-portal *,
-    .gradio-popover * {
-        background: #1a1c2e !important;
-        color: #fff !important;
-    }
-
-    /* Keep high z-index so popups are above other layers */
-    .gradio-portal,
-    .gradio-popover {
-        z-index: 9999 !important;
-    }
-    
-    /* Checkbox and Radio labels */
-    .gradio-checkbox label, .gradio-radio label {
-        color: white !important;
-        font-weight: 500 !important;
-    }
-    
-    /* Fix for file explorer/browser buttons if needed */
-    button.secondary {
-        color: white !important;
-        border-color: rgba(255, 255, 255, 0.2) !important;
-    }
-    
-    /* Ensure info text is white */
-    .gr-info-text, .info-text, [class*="info"] {
-        color: white !important;
-    }
-    
-    /* Ensure all block labels and descriptions are white */
-    .block-label, .block-info, .gradio-label-small {
-        color: white !important;
-    }
-    
-    /* Examples section styling - dark background */
-    .gr-examples, .gr-samples, .examples {
-        background-color: #0f1016 !important;
-    }
-    
-    /* Table styling for examples */
-    table, tbody, thead, tr, td, th {
-        background-color: #1a1c2e !important;
-        border-color: rgba(255, 255, 255, 0.1) !important;
-        color: white !important;
-    }
-    
-    th {
-        background-color: #0f1016 !important;
-        color: white !important;
-        font-weight: 600 !important;
-    }
-    
-    /* Red text for specific buttons and options */
-    /* Target Browse System buttons */
-    button {
-        font-size: 0.875rem;
-    }
-    
-    /* Make button text red for Browse and Detect buttons */
-    .gr-button:nth-of-type(1),
-    .gr-button:nth-of-type(2) {
+    /* Text inside dropdowns (selected value, options list items) */
+    .wrap-inner span, .dropdown-wrapper span, .options span, .item span, 
+    .single-select, .token span, li.item {
         color: red !important;
     }
     
-    /* Target all buttons and make specific ones red */
-    button[type="button"] {
-        transition: color 0.3s;
+    /* Fix for SVG icons (arrows/chevrons) in dropdowns */
+    .dropdown-wrapper svg, .wrap-inner svg {
+        fill: red !important;
+        stroke: red !important;
     }
-    
-    /* Use CSS to style buttons with specific content - this is a workaround */
-    /* Red text for distillation mode options */
-    .gradio-radio {
-        display: flex;
-        gap: 1rem;
-    }
-    
-    .gradio-radio input[type="radio"] {
-        accent-color: cyan;
-    }
-    
-    .gradio-radio input[type="radio"] ~ label {
-        color: white !important;
-        font-weight: 500;
-    }
-    
-    /* Target button text more aggressively */
-    button span, button div {
+
+    /* --- CHECKBOXES & RADIOS --- */
+    .checkbox label span, .radio label span {
         color: red !important;
     }
     
-    /* Target all button content */
-    button {
-        color: red !important;
-    }
-    
-    button * {
-        color: red !important;
-    }
-    
-    /* Specific styling for red buttons */
-    #browse_student_btn,
-    #browse_teacher_btn,
-    #detect_llm_btn {
-        background-color: #1a1c2e !important;
-        border: 2px solid red !important;
-        color: red !important;
-    }
-    
-    #browse_student_btn button,
-    #browse_teacher_btn button,
-    #detect_llm_btn button,
-    #browse_student_btn *,
-    #browse_teacher_btn *,
-    #detect_llm_btn * {
-        color: red !important;
-        background-color: transparent !important;
-    }
-    
-    /* Distillation mode radio options styling */
-    #distillation_mode_radio {
-        display: flex;
-        gap: 1rem;
-    }
-    
-    #distillation_mode_radio label {
-        color: white !important;
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        background-color: #1a1c2e !important;
-        border: 1px solid rgba(255,255,255,0.12) !important;
-        border-radius: 10px !important;
-    }
-
-    #distillation_mode_radio label * {
-        color: white !important;
-    }
-
-    #distillation_mode_radio input[type="radio"]:checked + label {
-        background-color: rgba(255,255,255,0.06) !important;
-    }
-
-    /* Dropdown overrides (must be last to beat aggressive button text rules) */
-    .gr-dropdown,
-    .gr-dropdown > div,
-    .gr-dropdown .wrap,
-    .gr-dropdown .input-container,
-    .gr-dropdown .single-value,
-    .gr-dropdown .placeholder,
-    .gr-dropdown input,
-    .gr-dropdown [role="combobox"],
-    [data-testid="dropdown"],
-    [data-testid="dropdown"] * {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-        border-color: rgba(255,255,255,0.12) !important;
-    }
-
-    .gr-dropdown svg,
-    .gr-dropdown svg *,
-    [data-testid="dropdown"] svg,
-    [data-testid="dropdown"] svg * {
-        color: #fff !important;
-        fill: #fff !important;
-    }
-
-    .gradio-portal [role="listbox"],
-    .gradio-portal [role="option"],
-    [role="listbox"],
-    [role="option"] {
-        background-color: #1a1c2e !important;
-        color: #fff !important;
-    }
-
-    [role="option"][aria-selected="true"],
-    [role="option"]:hover {
-        background-color: rgba(255,255,255,0.06) !important;
-        color: #fff !important;
-    }
+    /* Buttons */
+    button, .lg.primary, .lg.secondary, .sm.primary, .sm.secondary, .primary { color: red !important; } 
     """
     
-    # JavaScript to ensure dropdown/popover text is visible even when Gradio creates white popups
-    js_code = """
-    <script>
-    function getEffectiveBackgroundColor(el) {
-        try {
-            let node = el;
-            while (node && node !== document.documentElement) {
-                const cs = window.getComputedStyle(node);
-                if (!cs) break;
-                const bg = cs.backgroundColor;
-                if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'hsla(0, 0%, 0%, 0)') {
-                    return bg;
-                }
-                node = node.parentElement;
-            }
-        } catch (e) {}
-        return null;
-    }
-
-    function applyImportantStyle(el, prop, val) {
-        try { el.style.setProperty(prop, val, 'important'); } catch(e) {}
-    }
-
-    function colorSpecificElements() {
-        try {
-            // Force known Gradio popover/portal containers to dark background + red text
-            document.querySelectorAll('.gradio-portal, .gradio-popover, .gradio-modal, .gr-examples, .gr-samples').forEach(el => {
-                applyImportantStyle(el, 'background-color', '#1a1c2e');
-                applyImportantStyle(el, 'color', 'white');
-                el.querySelectorAll('*').forEach(c => {
-                    applyImportantStyle(c, 'color', 'white');
-                });
-            });
-
-            // For any element whose effective background is white, recolor background and text
-            document.querySelectorAll('body *').forEach(el => {
-                const bg = getEffectiveBackgroundColor(el);
-                if (!bg) return;
-                if (bg === 'rgb(255, 255, 255)' || bg === 'rgba(255, 255, 255, 1)' || bg.toLowerCase() === '#ffffff' || bg.toLowerCase() === 'white') {
-                    applyImportantStyle(el, 'background-color', '#1a1c2e');
-                    applyImportantStyle(el, 'color', 'white');
-                    // apply to children
-                    el.querySelectorAll('*').forEach(c => {
-                        applyImportantStyle(c, 'color', 'white');
-                        const childBg = getEffectiveBackgroundColor(c);
-                        if (childBg && (childBg === 'rgb(255, 255, 255)' || childBg === 'rgba(255, 255, 255, 1)')) {
-                            applyImportantStyle(c, 'background-color', '#1a1c2e');
-                        }
-                    });
-                }
-            });
-        } catch (e) {
-            console.warn('colorSpecificElements error', e);
-        }
-    }
-
-    window.addEventListener('load', colorSpecificElements);
-    setTimeout(colorSpecificElements, 200);
-    setTimeout(colorSpecificElements, 600);
-    setTimeout(colorSpecificElements, 1200);
-    setTimeout(colorSpecificElements, 2000);
-
-    const observer = new MutationObserver(() => colorSpecificElements());
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    window.fixGradioColors = colorSpecificElements;
-    </script>
-    """
-
     with gr.Blocks(theme=custom_theme, title=GRADIO_TITLE, css=css) as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
         
-        # Add custom JavaScript for button and radio coloring
-        gr.HTML(js_code)
-        
-        # Device information panel
-        with gr.Row():
-            device_info = gr.Markdown(get_device_info())
-        
-        # 1. Input Model Selection Section
-        gr.Markdown("## Input Model Selection (Random/Student Model)")
-        with gr.Row():
-            with gr.Column(scale=3):
-                model_path = gr.Textbox(
-                    label="Input Model Path (Target for Processing)",
-                    placeholder="Select a folder path...",
-                    info="Path to the model you want to quantize/distill (e.g. HuggingFace folder)"
-                )
-            with gr.Column(scale=1):
-                browse_student_btn = gr.Button("📂 Browse System", variant="secondary", elem_id="browse_student_btn")
-            
-            with gr.Column(scale=2):
-                model_type = gr.Dropdown(
-                    choices=MODEL_TYPES,
-                    value=DEFAULT_MODEL_TYPE,
-                    label="Input Model Library/Type",
-                    info="Select the library or type of the model"
-                )
+        with gr.Tabs():
+            with gr.TabItem("Diffusion Distillation"):
+                # Device information panel
+                with gr.Row():
+                    device_info = gr.Markdown(get_device_info())
+                
+                # 1. Input Model Selection Section
+                gr.Markdown("## Input Model Selection (Random/Student Model)")
+                with gr.Row():
+                    with gr.Column(scale=3):
+                        model_path = gr.Textbox(
+                            label="Input Model Path (Target for Processing)",
+                            placeholder="Select a folder path...",
+                            info="Path to the model you want to quantize/distill (e.g. HuggingFace folder)"
+                        )
+                    with gr.Column(scale=1):
+                        browse_student_btn = gr.Button("📂 Browse System", variant="secondary")
+                    
+                    with gr.Column(scale=2):
+                        model_type = gr.Dropdown(
+                            choices=MODEL_TYPES,
+                            value=DEFAULT_MODEL_TYPE,
+                            label="Input Model Library/Type",
+                            info="Select the library or type of the model"
+                        )
 
-        # Wire browse button
-        browse_student_btn.click(
-            fn=open_folder_dialog,
-            outputs=model_path
-        )
-        
-        # 2. Knowledge Distillation Configuration Section
-        gr.Markdown("## Knowledge Distillation Configuration")
-        with gr.Row():
-            distillation_mode = gr.Radio(
-                choices=["placeholder", "teacher_student"],
-                value=dist_config.get("mode", "placeholder"),
-                label="Distillation Mode",
-                info="Placeholder: No training | Teacher-Student: Real KD training",
-                elem_id="distillation_mode_radio"
-            )
-        
-        with gr.Row(visible=True) as teacher_row:
-            with gr.Column(scale=3):
-                teacher_model_path = gr.Textbox(
-                    label="Teacher Model Path",
-                    placeholder="Select a folder path...",
-                    value=dist_config.get("teacher_model_path", ""),
-                    info="Required for teacher-student mode"
-                )
-            with gr.Column(scale=1):
-                browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary", elem_id="browse_teacher_btn")
-
-            with gr.Column(scale=2):
-                teacher_model_type = gr.Dropdown(
-                    choices=MODEL_TYPES,
-                    value=dist_config.get("teacher_type", DEFAULT_MODEL_TYPE),
-                    label="Teacher Model Type"
-                )
-        
-        # Wire teacher browse button
-        browse_teacher_btn.click(
-            fn=open_folder_dialog,
-            outputs=teacher_model_path
-        )
-
-        # Show/hide teacher inputs based on mode
-        def toggle_teacher_visibility(mode):
-            return gr.update(visible=(mode == "teacher_student"))
-        
-        distillation_mode.change(
-            fn=toggle_teacher_visibility,
-            inputs=[distillation_mode],
-            outputs=[teacher_row]
-        )
-        
-        # 3. Local LLM Configuration Section
-        gr.Markdown("## Local LLM Integration (Optional)")
-        with gr.Row():
-            use_local_llm = gr.Checkbox(
-                label="Use Local LLM",
-                value=llm_config.get("enabled", False),
-                info="Connect to LM Studio, Ollama, or other local LLM servers"
-            )
-        
-        with gr.Row(visible=llm_config.get("enabled", False)) as llm_row:
-            with gr.Column():
-                local_llm_provider = gr.Dropdown(
-                    choices=["auto", "lm_studio", "ollama", "custom"],
-                    value=llm_config.get("provider", "auto"),
-                    label="LLM Provider",
-                    info="Auto-detect or specify provider"
+                browse_student_btn.click(fn=open_folder_dialog, outputs=model_path)
+                
+                # 2. Knowledge Distillation Configuration Section
+                gr.Markdown("## Knowledge Distillation Configuration")
+                distillation_mode = gr.Radio(
+                    choices=["placeholder", "teacher_student"],
+                    value=dist_config.get("mode", "placeholder"),
+                    label="Distillation Mode",
+                    info="Placeholder: No training | Teacher-Student: Real KD training"
                 )
                 
-                local_llm_url = gr.Textbox(
-                    label="LLM Server URL",
-                    value=llm_config.get("base_url", "http://localhost:1234/v1"),
-                    info="Base URL for LM Studio (port 1234) or Ollama (port 11434)"
+                with gr.Row(visible=(dist_config.get("mode", "placeholder") == "teacher_student")) as teacher_row:
+                    with gr.Column(scale=3):
+                        teacher_model_path = gr.Textbox(
+                            label="Teacher Model Path",
+                            placeholder="Select a folder path...",
+                            value=dist_config.get("teacher_model_path", ""),
+                            info="Required for teacher-student mode"
+                        )
+                    with gr.Column(scale=1):
+                        browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary")
+
+                    with gr.Column(scale=2):
+                        teacher_model_type = gr.Dropdown(
+                            choices=MODEL_TYPES,
+                            value=dist_config.get("teacher_type", DEFAULT_MODEL_TYPE),
+                            label="Teacher Model Type"
+                        )
+                
+                browse_teacher_btn.click(fn=open_folder_dialog, outputs=teacher_model_path)
+
+                def toggle_teacher_visibility(mode):
+                    return gr.update(visible=(mode == "teacher_student"))
+                
+                distillation_mode.change(fn=toggle_teacher_visibility, inputs=[distillation_mode], outputs=[teacher_row])
+                
+                # 3. Local LLM Configuration Section
+                gr.Markdown("## Local LLM Integration (Optional)")
+                use_local_llm = gr.Checkbox(
+                    label="Use Local LLM",
+                    value=llm_config.get("enabled", False),
+                    info="Connect to LM Studio, Ollama, or other local LLM servers"
                 )
-        
-        # Show/hide LLM inputs based on checkbox
-        def toggle_llm_visibility(enabled):
-            return gr.update(visible=enabled)
-        
-        use_local_llm.change(
-            fn=toggle_llm_visibility,
-            inputs=[use_local_llm],
-            outputs=[llm_row]
-        )
-        
-        # Detect button for local LLM
-        with gr.Row():
-            detect_llm_btn = gr.Button("Detect Local LLM", variant="secondary", elem_id="detect_llm_btn")
-            llm_status = gr.Markdown("")
-        
-        def detect_llm():
-            provider, models = detect_local_llm()
-            return f"**Detected Provider:** {provider}\n**Available Models:** {models}"
-        
-        detect_llm_btn.click(fn=detect_llm, outputs=[llm_status])
-        
-        # 4. Quantization Configuration Section
-        gr.Markdown("## Quantization Configuration")
-        with gr.Row():
-            quant_type = gr.Dropdown(
-                choices=QUANT_TYPES,
-                value=DEFAULT_QUANT_TYPE,
-                label="Quantization Type",
-                info="INT4 (weight-only), INT8 (dynamic), or FP8"
-            )
-        
-        # Run Button
-        with gr.Row():
-            run_btn = gr.Button(
-                "Run Distill + Quantize",
-                variant="primary",
-                size="lg"
-            )
-        
-        # Log Output
-        with gr.Row():
-            log_output = gr.Textbox(
-                label="Live Log Output",
-                lines=20,
-                max_lines=30,
-                interactive=False,
-                placeholder="Logs will appear here..."
-            )
-        
-        # Connect the button to the processing function
-        run_btn.click(
-            fn=process_model,
-            inputs=[
-                model_path,
-                model_type,
-                quant_type,
-                distillation_mode,
-                teacher_model_path,
-                teacher_model_type,
-                use_local_llm,
-                local_llm_provider,
-                local_llm_url
-            ],
-            outputs=[log_output]
-        ).then(
-            fn=lambda: get_device_info(),
-            outputs=[device_info]
-        )
-        
-        # Example section
-        gr.Markdown("## Examples")
-        gr.Examples(
-            examples=[
-                ["microsoft/phi-2", "HuggingFace Transformers (NLP/Vision/Audio)", "INT8 (dynamic)", "placeholder", "", "HuggingFace Transformers (NLP/Vision/Audio)"],
-                ["meta-llama/Llama-2-7b-hf", "HuggingFace Transformers (NLP/Vision/Audio)", "INT4 (weight-only)", "teacher_student", "meta-llama/Llama-2-13b-hf", "HuggingFace Transformers (NLP/Vision/Audio)"],
-            ],
-            inputs=[model_path, model_type, quant_type, distillation_mode, teacher_model_path, teacher_model_type],
-        )
-    
+                
+                with gr.Row(visible=llm_config.get("enabled", False)) as llm_row:
+                    local_llm_provider = gr.Dropdown(
+                        choices=["auto", "lm_studio", "ollama", "custom"],
+                        value=llm_config.get("provider", "auto"),
+                        label="LLM Provider"
+                    )
+                    local_llm_url = gr.Textbox(
+                        label="LLM Server URL",
+                        value=llm_config.get("base_url", "http://localhost:1234/v1"),
+                        info="Base URL for LLM server"
+                    )
+                
+                use_local_llm.change(fn=lambda x: gr.update(visible=x), inputs=[use_local_llm], outputs=[llm_row])
+                
+                # 4. Quantization Configuration Section
+                gr.Markdown("## Quantization Configuration")
+                quant_type = gr.Dropdown(
+                    choices=QUANT_TYPES,
+                    value=DEFAULT_QUANT_TYPE,
+                    label="Quantization Type",
+                )
+                
+                run_btn = gr.Button("Run Distill + Quantize", variant="primary")
+                log_output = gr.Textbox(label="Live Log Output", lines=20, interactive=False)
+                
+                run_btn.click(
+                    fn=process_model,
+                    inputs=[
+                        model_path, model_type, quant_type, distillation_mode,
+                        teacher_model_path, teacher_model_type, use_local_llm,
+                        local_llm_provider, local_llm_url
+                    ],
+                    outputs=[log_output]
+                ).then(fn=lambda: get_device_info(), outputs=[device_info])
+
+            with gr.TabItem("BERT Distillation"):
+                gr.Markdown("## BERT Distillation and Quantization")
+                
+                with gr.Row():
+                    bert_teacher_path = gr.Textbox(label="Teacher Model", placeholder="e.g., bert-base-uncased or path to folder")
+                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_teacher_path)
+                
+                with gr.Row():
+                    bert_student_path = gr.Textbox(label="Student Model", placeholder="e.g., prajjwal1/bert-tiny or path to folder")
+                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_student_path)
+
+                with gr.Row():
+                    bert_custom_path = gr.Textbox(label="Custom Model (Optional)", placeholder="Path to a third model folder")
+                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_custom_path)
+                
+                bert_strategy = gr.Dropdown(
+                    choices=list(STRATEGY_REGISTRY.keys()),
+                    label="Distillation Strategy",
+                    value="patient_kd"
+                )
+                
+                bert_quant_type = gr.Dropdown(
+                    choices=["None", "INT4", "INT8"],
+                    label="Quantization Type",
+                    value="None"
+                )
+                
+                bert_run_btn = gr.Button("Run BERT Distillation", variant="primary")
+                bert_log_output = gr.Textbox(label="Live Log Output", lines=20, interactive=False)
+
+                bert_run_btn.click(
+                    fn=run_bert_distillation_process,
+                    inputs=[bert_teacher_path, bert_student_path, bert_custom_path, bert_strategy, bert_quant_type],
+                    outputs=[bert_log_output]
+                )
+
     return demo
 
 

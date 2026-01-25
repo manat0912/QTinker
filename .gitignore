@@ -48,3 +48,6 @@ Thumbs.db
 *.bin
 *.safetensors
 *.ckpt
+
+app/bert_models/
+app/bert_distilled_models/
