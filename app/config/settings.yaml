@@ -6,8 +6,8 @@ distillation:
   learning_rate: 5e-5
   max_steps: 100
   mode: teacher_student
-  teacher_model_path: C:/pinokio/api/QTinker/app/bert_models/bert-mini
-  teacher_type: HuggingFace Datasets
+  teacher_model_path: C:/pinokio/api/QTinker/app/bert_models/bert_large/bert-large-uncased/bert_model.ckpt.data-00000-of-00001
+  teacher_type: OpenVINO
   temperature: 1.0
 local_llm:
   api_key: ''

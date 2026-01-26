@@ -4,16 +4,29 @@ A modern, production-ready application for distilling and quantizing language mo
 
 ## Features
 
-- 🎯 **Flexible Model Loading**: Support for HuggingFace models and PyTorch checkpoints
-- � **Intelligent VRAM Offloading**: Smart model loading using `accelerate` to automatically offload layers to CPU/Disk when GPU VRAM is full, enabling larger models on consumer hardware
+- 🎯 **Flexible Model Loading**: Support for HuggingFace models, Stable Diffusion models, and PyTorch checkpoints
+- 🖼️ **Stable Diffusion & Diffusers Support**: Full support for all SD models (1.5, 2.x, SDXL) and other diffusers models
+  - Complete pipeline loading (model_index.json)
+  - Individual component loading (UNet, VAE, Text Encoder)
+  - Automatic model architecture detection
+  - Raw state_dict support with intelligent wrapping
+- 🤗 **Comprehensive BERT Support**: 15+ BERT model variants (Large, Base, Small, Multilingual) - **NO HuggingFace token required**
+  - Automatic model downloading from Google Cloud Storage
+  - BERT-Large variants for teacher models (uncased, cased, whole-word masking)
+  - BERT-Small variants for student models (small, mini, tiny, medium)
+  - Multilingual support (104 languages, Chinese)
+  - DistilBERT variants documentation
+  - Automatic MODEL_REGISTRY.md generation
 - 🧪 **Advanced Distillation Strategies**: Multiple knowledge distillation methods including:
   - Logit-based Knowledge Distillation (KD)
   - Patient Knowledge Distillation (matching specific layers)
+  - Feature-based Distillation (intermediate layer matching)
   - Custom projection layers for dimension matching
   - Configurable temperature parameters
 - ⚡ **TorchAO Quantization**: Professional-grade quantization with multiple options:
   - INT4 Weight-Only (group_size configurable)
   - INT8 Dynamic Quantization
+  - FP8, NF4, and other advanced formats
   - Model-specific quantization configurations
 - 📂 **Enhanced File Browser**: Native file dialog integration for easy model selection with smart default paths
 - 🎨 **Gradio Web UI**: Beautiful, responsive web interface with real-time log streaming and custom dark theme
@@ -109,6 +122,47 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
+## Supported Model Types
+
+QTinker supports a wide variety of model formats and automatically detects the model type:
+
+### 🤗 HuggingFace Models
+- **Transformers**: BERT, GPT-2, LLaMA, Mistral, Phi, any AutoModel
+- **Sentence Transformers**: Embedding models
+- **Vision**: ViT, CLIP, DINOv2
+- **Audio**: Whisper, Wav2Vec2
+- Any HuggingFace model with `config.json`
+
+**How to use**: Provide path to HuggingFace model folder containing `config.json`
+
+### 🖼️ Stable Diffusion & Diffusers
+- **Stable Diffusion 1.5**: All community checkpoints
+- **Stable Diffusion 2.x**: v2.0, v2.1, variations
+- **SDXL**: Stable Diffusion XL and variants
+- **Other Diffusers**: ControlNet, LoRA-compatible models, custom pipelines
+- **Components**: Individual UNet, VAE, or Text Encoder models
+
+**How to use**:
+- Full pipeline (recommended): Provide folder with `model_index.json`
+- Components: Provide folder with `unet/`, `vae/`, or `text_encoder/` subfolders
+- Raw state_dict: Provide `.bin` file - the app will auto-detect and wrap it
+
+### 📦 PyTorch Checkpoints
+- Raw `.pt` or `.bin` files containing model weights (state_dict)
+- Custom model architectures
+- Fine-tuned model checkpoints
+
+**How to use**: Provide path to `.pt` or `.bin` file - the app will intelligently wrap it
+
+### 🔄 Auto-Detection
+The app automatically detects the model type by examining:
+1. Directory structure and config files
+2. JSON metadata files
+3. File extensions and content
+4. State dict keys (for raw weights)
+
+**No need to manually select the model type** - just provide the path!
+
 ## Usage
 
 ### Using Pinokio Launcher (Easiest)
@@ -142,9 +196,10 @@ The Gradio interface will be available at `http://localhost:7860`
 ### Using the Web Interface
 
 1. **Model Selection**: Use the sidebar buttons to select teacher, student, and quantization target models
-2. **Model Path**: Enter the path to your model (HuggingFace folder or PyTorch checkpoint)
-3. **Model Type**: Select the type of model you're loading:
+2. **Model Path**: Enter the path to your model (HuggingFace folder, Stable Diffusion folder, or PyTorch checkpoint)
+3. **Model Type**: The type is **auto-detected**, but you can override it from the dropdown:
    - HuggingFace folder
+   - Diffusers (Stable Diffusion and other diffusers models)
    - PyTorch .pt/.bin file
 4. **Quantization Type**: Choose your quantization method:
    - INT4 (weight-only) - More aggressive compression
@@ -442,6 +497,27 @@ device = device_manager.get_device()
 
 ## Troubleshooting
 
+### Stable Diffusion Model Loading Errors
+
+**Problem**: "Loaded object is not a torch.nn.Module" when loading Stable Diffusion models
+**Solution**:
+The app now automatically detects and handles Stable Diffusion models in multiple formats:
+1. **Full Pipeline** (with `model_index.json`): Automatically loaded as StableDiffusionPipeline
+2. **Component-based** (separate UNet/VAE/TextEncoder folders): Loaded as individual components
+3. **Raw state_dict files** (.bin, .pt): Intelligently wrapped based on component type
+4. **Different SD versions**: Supports SD 1.5, 2.x, SDXL, and other diffusers models
+
+The loader will:
+- Detect model architecture from directory structure
+- Load UNet, VAE, Text Encoder as appropriate components
+- Handle raw state_dict files by analyzing keys and wrapping them
+- Fall back to alternative loading methods if primary method fails
+
+**Example**: If loading a UNet component at `path/to/unet/pytorch_model.bin`:
+- The app detects it's a UNet component
+- Wraps it appropriately for distillation/quantization
+- Moves it to the correct device (GPU/CPU)
+
 ### Out of Memory (OOM) Errors
 
 **Problem**: Model loading fails with CUDA out of memory
@@ -452,12 +528,15 @@ device = device_manager.get_device()
 
 ### Model Loading Issues
 
-**Problem**: Model fails to load from HuggingFace
+**Problem**: Model fails to load from HuggingFace or from file
 **Solution**:
-1. Ensure you have internet connection
-2. Verify model name is correct
+1. Ensure you have internet connection (for HuggingFace models)
+2. Verify model name/path is correct
 3. Check HuggingFace authentication if using private models
-4. Use local model paths instead
+4. For Stable Diffusion models, ensure the folder structure is intact:
+   - Either `model_index.json` exists (full pipeline)
+   - Or subfolders like `unet/`, `vae/`, `text_encoder/` exist (components)
+5. Try loading from a local model path instead of HuggingFace Hub
 
 ### Distillation Not Starting
 
@@ -466,7 +545,8 @@ device = device_manager.get_device()
 1. Ensure both teacher and student models are loaded
 2. Check that training data is available in `data/train_prompts.txt`
 3. Verify CUDA/device availability in logs
-4. Check logs folder for detailed error messages
+4. For Stable Diffusion models, note that distillation adapts to component type
+5. Check logs folder for detailed error messages
 
 ### Performance Issues
 
@@ -476,6 +556,7 @@ device = device_manager.get_device()
 - Use INT4 quantization for faster processing
 - Ensure GPU is available and not occupied by other processes
 - Use smaller models for testing
+- For Stable Diffusion UNet models, quantization may take longer due to component size
 
 ## Output Models
 
