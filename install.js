@@ -133,10 +133,28 @@ module.exports = {
       venv: "env",
       path: "app",
       message: [
-        "{{platform === 'win32' ? 'mkdir bert_models' : 'mkdir -p bert_models'}}",
+        "echo 'Downloading BERT models...'",
         "git clone --depth 1 https://github.com/google-research/bert bert_models/google_research_bert",
         "git clone --depth 1 https://github.com/huawei-noah/Pretrained-Language-Model bert_models/huawei_noah_bert",
-        "python download_models.py"
+      ]
+    }
+  }, {
+    method: "shell.run",
+    params: {
+      venv: "env",
+      path: "app",
+      message: [
+        "echo 'Downloading BERT-Large, BERT-Small variants and creating model registry...'",
+        "python download_bert_models.py"
+      ]
+    }
+  }, {
+    method: "shell.run",
+    params: {
+      venv: "env",
+      path: "app",
+      message: [
+        "{{platform === 'win32' ? 'if exist download_models.py python download_models.py' : 'test -f download_models.py && python download_models.py || true'}}"
       ]
     }
   }, {
@@ -152,7 +170,7 @@ module.exports = {
   }, {
     method: "notify",
     params: {
-      html: "🎉 <b>QTinker Installation Complete!</b><br><br><b>Model Distillation:</b><br>✓ Logit-based Knowledge Distillation (KD)<br>✓ Patient Knowledge Distillation<br>✓ Feature-based Distillation<br>✓ HuggingFace distillation APIs<br><br><b>Quantization (Production-Grade):</b><br>✓ TorchAO (INT4, INT8, FP8, NF4)<br>✓ GPTQ & AutoGPTQ (4-bit post-training)<br>✓ AWQ (Activation-Aware Quantization)<br>✓ Bitsandbytes (LLM.int8)<br>✓ ONNX Runtime quantization<br><br><b>Pruning & Sparsity:</b><br>✓ SparseML (structured/unstructured pruning)<br>✓ Magnitude-based & movement pruning<br>✓ Layer pruning & channel pruning<br><br><b>Export & Optimization:</b><br>✓ ONNX export & optimization<br>✓ OpenVINO cross-platform optimization<br>✓ Intel Neural Compressor<br>✓ GGUF quantization for inference<br>✓ llama.cpp CPU inference<br><br><b>Additional Features:</b><br>✓ Gradio Web UI<br>✓ Smart GPU/CPU management<br>✓ Model registry & selection<br>✓ BERT models (base, small, mini, tiny)<br><br>👉 Click <b>'Start'</b> to launch the web UI!"
+      html: "🎉 <b>QTinker Installation Complete!</b><br><br><b>BERT Models Installed:</b><br>✓ BERT-Large Uncased (24-layer, 1024-hidden, 340M params)<br>✓ BERT-Large Cased (24-layer, 1024-hidden, 340M params)<br>✓ BERT-Large Uncased Whole Word Masking<br>✓ BERT-Large Cased Whole Word Masking<br>✓ BERT-Small (4-layer, 512-hidden) - for distillation<br>✓ BERT-Mini (4-layer, 256-hidden) - for distillation<br>✓ BERT-Tiny (2-layer, 128-hidden) - ultra-light<br>✓ BERT-Medium (8-layer, 512-hidden)<br>✓ Multilingual BERT<br>✓ Chinese BERT<br>✓ DistilBERT variants available<br><br><b>Distillation Features:</b><br>✓ Logit-based Knowledge Distillation (KD)<br>✓ Patient Knowledge Distillation<br>✓ Feature-based Distillation<br><br><b>Quantization (Production-Grade):</b><br>✓ TorchAO (INT4, INT8, FP8, NF4)<br>✓ GPTQ & AutoGPTQ<br>✓ AWQ (Activation-Aware Quantization)<br>✓ Bitsandbytes<br>✓ ONNX Runtime<br><br><b>Advanced Features:</b><br>✓ Gradio Web UI<br>✓ Smart GPU/CPU management<br>✓ No HuggingFace token required<br>✓ Model registry & selection<br><br>👉 Click <b>'Start'</b> to launch the web UI!"
     }
   }
   ]
