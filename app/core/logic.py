@@ -36,47 +36,29 @@ def load_model(model_path: str, model_type: str, log_fn=None, device_manager=Non
     
     device_manager.log_device_info()
     
-    # Determine device for loading
-    load_on_cpu = False
-    if AUTO_DEVICE_SWITCHING:
-        # For large models, we'll load on CPU first then move if needed
-        load_on_cpu = True
+    # Check device availability
+    device = device_manager.get_device()
+    use_gpu = device.type == "cuda"
     
     try:
         if model_type == "HuggingFace folder":
-            # Load on CPU first to check size, then move to GPU if appropriate
             if log_fn:
-                log_fn("Loading model on CPU first (will move to GPU if VRAM allows)...")
+                log_fn(f"Loading model from {model_path}...")
+            
+            # Use accelerate's device_map="auto" for intelligent offloading if on GPU
+            # This handles offloading to CPU and loading back to GPU for processing
+            device_map = "auto" if use_gpu else "cpu"
             
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
-                torch_dtype=torch.float16,
+                torch_dtype=torch.float16 if use_gpu else torch.float32,
                 low_cpu_mem_usage=True,
-                device_map="cpu"  # Load on CPU first
+                device_map=device_map
             )
             tokenizer = AutoTokenizer.from_pretrained(model_path)
             
-            # Estimate model size
-            estimated_size = device_manager.estimate_model_size(model)
             if log_fn:
-                log_fn(f"Estimated model size: {estimated_size:.2f}GB")
-            
-            # Check if we should use GPU or CPU
-            if AUTO_DEVICE_SWITCHING and device_manager.should_use_cpu(estimated_size):
-                device_manager.switch_to_cpu()
-                load_on_cpu = True
-            else:
-                # Try to move to GPU
-                try:
-                    model = device_manager.move_model_to_device(model, force_cpu=load_on_cpu)
-                except RuntimeError as e:
-                    if "out of memory" in str(e).lower():
-                        if log_fn:
-                            log_fn(f"⚠️  GPU OOM during model loading: {e}")
-                        device_manager.switch_to_cpu()
-                        model = model.to(torch.device("cpu"))
-                        if log_fn:
-                            log_fn("Model loaded on CPU due to VRAM limitations")
+                log_fn(f"Model loaded with device_map='{device_map}'")
             
             return model, tokenizer
         

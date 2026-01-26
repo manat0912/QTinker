@@ -5,6 +5,7 @@ A modern, production-ready application for distilling and quantizing language mo
 ## Features
 
 - 🎯 **Flexible Model Loading**: Support for HuggingFace models and PyTorch checkpoints
+- � **Intelligent VRAM Offloading**: Smart model loading using `accelerate` to automatically offload layers to CPU/Disk when GPU VRAM is full, enabling larger models on consumer hardware
 - 🧪 **Advanced Distillation Strategies**: Multiple knowledge distillation methods including:
   - Logit-based Knowledge Distillation (KD)
   - Patient Knowledge Distillation (matching specific layers)
@@ -14,11 +15,12 @@ A modern, production-ready application for distilling and quantizing language mo
   - INT4 Weight-Only (group_size configurable)
   - INT8 Dynamic Quantization
   - Model-specific quantization configurations
-- 🎨 **Gradio Web UI**: Beautiful, responsive web interface with real-time log streaming
+- 📂 **Enhanced File Browser**: Native file dialog integration for easy model selection with smart default paths
+- 🎨 **Gradio Web UI**: Beautiful, responsive web interface with real-time log streaming and custom dark theme
 - 📦 **Modular Architecture**: Clean separation of concerns with pluggable components
-- 🖥️ **Smart GPU/CPU Management**: Automatic device selection and switching
+- 🖥️ **Smart GPU/CPU Management**: Automatic device selection and switching with CUDA support for inference engines
 - 💾 **Memory Efficient Processing**: Intelligent VRAM monitoring and fallback strategies
-- 🚀 **Pinokio Launcher Integration**: One-click installation, start, update, and reset
+- 🚀 **Pinokio Launcher Integration**: One-click installation, start, update, and reset with robust cross-platform support
 - 🔧 **Model Selection UI**: Interactive file pickers for teacher, student, and target models
 - 📊 **Registry System**: Comprehensive model registry for tracking supported architectures
 - 🔗 **Symbolic Linking**: Automatic model linking for seamless integration

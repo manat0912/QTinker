@@ -5,10 +5,35 @@ diffusers>=0.21.0
 safetensors>=0.3.0
 
 # Quantization and optimization
-torchao>=0.1.0
+torchao>=0.2.0
 gguf>=0.1.0
 bitsandbytes>=0.40.0
-optimum>=1.12.0
+optimum[onnx,exporters]>=1.13.0
+
+# Advanced Quantization (Post-training & QAT)
+auto-gptq>=0.7.0
+autoawq>=0.2.0
+neural-speed>=2.0.0
+
+# Pruning and Sparsity
+sparseml>=1.7.0
+wanda-pruning>=1.0.0; python_version >= '3.8'
+
+# Distillation frameworks
+sentence-transformers>=2.7.0
+
+# ONNX optimization and conversion
+onnx-simplifier>=0.4.33
+skl2onnx>=1.16.0
+
+# End-to-end model optimization pipeline
+neural-compressor>=3.1.0
+
+# Intel optimization for CPU inference
+intel-extension-for-transformers>=1.3.0
+
+# OpenVINO toolkit (model optimization and inference)
+openvino>=2024.1.0
 
 # UI and visualization
 gradio>=4.0.0

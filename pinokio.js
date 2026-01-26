@@ -35,27 +35,38 @@ module.exports = {
         })
       }
     } else {
-      running_tabs.push({
-        default: true,
-        icon: "fa-solid fa-power-off",
-        text: "Start",
-        href: "start.js",
-      })
+      if (running.install || running.update || running.reset) {
+        running_tabs.push({
+          icon: "fa-solid fa-power-off",
+          text: "Start",
+          href: "start.js",
+        })
+      } else {
+        running_tabs.push({
+          default: true,
+          icon: "fa-solid fa-power-off",
+          text: "Start",
+          href: "start.js",
+        })
+      }
     }
 
     return [
       ...running_tabs,
       {
+        default: running.update,
         icon: "fa-solid fa-plug",
         text: "Update",
         href: "update.js",
       },
       {
+        default: running.install,
         icon: "fa-solid fa-plug",
         text: "Install",
         href: "install.js",
       },
       {
+        default: running.reset,
         icon: "fa-regular fa-circle-xmark",
         text: "Reset",
         href: "reset.js",

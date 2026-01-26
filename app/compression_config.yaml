@@ -1,0 +1,286 @@
+# Compression Presets Configuration
+# Define preset configurations for different compression scenarios
+
+presets:
+  # Light compression: minimal accuracy loss, good for demos
+  light:
+    name: "Light Compression"
+    description: "Minimal compression for fast deployment"
+    pruning:
+      method: "magnitude"
+      amount: 0.1  # 10% parameter removal
+      layer_types: ["Conv2d", "Linear"]
+    quantization:
+      method: "int8"
+      dynamic: true
+    export: "onnx"
+    expected_size_reduction: "10-20%"
+    expected_accuracy_retention: "99%+"
+    use_cases: ["Quick demos", "Proof of concept"]
+
+  # Medium compression: balanced accuracy/speed
+  medium:
+    name: "Medium Compression"
+    description: "Balanced compression for production"
+    pruning:
+      method: "global"
+      amount: 0.3  # 30% parameter removal
+      layer_types: ["Conv2d", "Linear"]
+    quantization:
+      method: "int8"
+      dynamic: false
+    export: "onnx"
+    expected_size_reduction: "40-60%"
+    expected_accuracy_retention: "97-98%"
+    use_cases: ["Production deployment", "Edge devices"]
+
+  # Aggressive compression: heavy reduction for mobile/edge
+  aggressive:
+    name: "Aggressive Compression"
+    description: "Heavy compression for extreme resource constraints"
+    pruning:
+      method: "structured"
+      amount: 0.5  # 50% channel removal
+      layer_types: ["Conv2d"]
+    quantization:
+      method: "int4"
+    export: "gguf"
+    expected_size_reduction: "75-90%"
+    expected_accuracy_retention: "94-96%"
+    use_cases: ["Mobile devices", "IoT/embedded", "Offline inference"]
+
+  # LLM-specific: optimized for large language models
+  llm_gptq:
+    name: "LLM Quantization (GPTQ)"
+    description: "4-bit GPTQ quantization for LLMs"
+    quantization:
+      method: "gptq"
+      bits: 4
+      group_size: 128
+      desc_act: false
+    export: "gguf"
+    expected_size_reduction: "75%"
+    expected_accuracy_retention: "99%+"
+    models: ["Llama-2", "Mistral", "Falcon", "MPT"]
+    use_cases: ["LLM inference", "Consumer GPU deployment"]
+
+  # LLM with AWQ: better accuracy than GPTQ
+  llm_awq:
+    name: "LLM Quantization (AWQ)"
+    description: "Better 4-bit quantization with activation awareness"
+    quantization:
+      method: "awq"
+      bits: 4
+      group_size: 128
+    export: "safetensors"
+    expected_size_reduction: "75%"
+    expected_accuracy_retention: "99.5%+"
+    models: ["Llama-2", "Mistral", "Qwen", "Phi"]
+    use_cases: ["High-accuracy LLM inference"]
+
+  # Distillation-focused: knowledge transfer optimization
+  distillation:
+    name: "Knowledge Distillation"
+    description: "Compress via teacher-student learning"
+    distillation:
+      method: "logit_kd"
+      temperature: 4.0
+      alpha: 0.7
+    quantization:
+      method: "int8"
+      post_training: true
+    export: "onnx"
+    expected_size_reduction: "40-60%"
+    expected_accuracy_retention: "96-98%"
+    use_cases: ["BERT models", "Transformer fine-tuning", "Custom models"]
+
+  # Vision models: optimized for CNN architectures
+  vision_cnn:
+    name: "Vision Model Compression"
+    description: "CNN-optimized compression (ResNet, EfficientNet, etc.)"
+    pruning:
+      method: "structured"
+      amount: 0.3
+      layer_types: ["Conv2d"]
+    quantization:
+      method: "int8"
+      qat: true
+    export: "tflite"
+    expected_size_reduction: "50-70%"
+    expected_accuracy_retention: "96-98%"
+    models: ["ResNet", "EfficientNet", "MobileNet", "VGG"]
+    use_cases: ["Image classification", "Object detection", "Mobile vision"]
+
+  # Multimodal: CLIP-like models (vision + language)
+  multimodal:
+    name: "Multimodal Model Compression"
+    description: "Compression for vision-language models (CLIP, LLaVA)"
+    quantization:
+      method: "int8"
+      both_vision_text: true
+    pruning:
+      method: "global"
+      amount: 0.2
+    export: "onnx"
+    expected_size_reduction: "50-70%"
+    expected_accuracy_retention: "95-97%"
+    models: ["CLIP", "LLaVA", "BLIP", "Flamingo"]
+    use_cases: ["Image-text matching", "Visual QA", "Image captioning"]
+
+# Compression strategies
+strategies:
+  # For fastest inference
+  latency_optimized:
+    name: "Latency Optimization"
+    steps:
+      - "quantization_int8"
+      - "pruning_structured_20%"
+      - "export_onnx"
+    target_metrics:
+      latency_ms: "<100"
+      throughput_samples_sec: ">10"
+
+  # For smallest model size
+  size_optimized:
+    name: "Size Optimization"
+    steps:
+      - "pruning_global_40%"
+      - "quantization_int4"
+      - "onnx_optimize"
+      - "export_gguf"
+    target_metrics:
+      model_size_mb: "<100"
+      accuracy_retention: ">95%"
+
+  # For edge deployment
+  edge_optimized:
+    name: "Edge Device Optimization"
+    steps:
+      - "distillation_kd"
+      - "pruning_structured_30%"
+      - "quantization_int8"
+      - "export_tflite"
+    target_metrics:
+      model_size_mb: "<10"
+      latency_ms: "<50"
+      memory_mb: "<100"
+
+  # For production quality
+  production_quality:
+    name: "Production Quality"
+    steps:
+      - "quantization_aware_training"
+      - "pruning_magnitude_20%"
+      - "onnx_optimize"
+      - "export_multiple_formats"
+    target_metrics:
+      accuracy_retention: ">99%"
+      inference_time_stable: true
+      error_rate: "<0.1%"
+
+# Hardware-specific optimizations
+hardware_profiles:
+  nvidia_gpu:
+    name: "NVIDIA GPU (TensorRT)"
+    recommended_format: "tensorrt"
+    quantization: ["int8", "fp16"]
+    acceleration: ["tensor-cores"]
+    export_tools: ["tensorrt", "onnx-runtime"]
+
+  intel_cpu:
+    name: "Intel CPU"
+    recommended_format: "openvino_ir"
+    quantization: ["int8", "bf16"]
+    optimization: ["neural-compressor", "openvino"]
+    export_tools: ["openvino", "onnx-runtime"]
+
+  apple_silicon:
+    name: "Apple Silicon (M1/M2/M3)"
+    recommended_format: "coreml"
+    quantization: ["int8", "fp16"]
+    acceleration: ["neural-engine"]
+    export_tools: ["coremltools"]
+
+  mobile_android:
+    name: "Android Mobile"
+    recommended_format: ["tflite", "onnx"]
+    quantization: ["int8", "int4"]
+    acceleration: ["nnapi"]
+    export_tools: ["tflite-converter"]
+
+  mobile_ios:
+    name: "iOS Mobile"
+    recommended_format: "coreml"
+    quantization: ["int8"]
+    acceleration: ["neural-engine"]
+    export_tools: ["coremltools"]
+
+  edge_devices:
+    name: "Edge/IoT Devices"
+    recommended_format: ["gguf", "openvino_ir"]
+    quantization: ["int4", "int8"]
+    export_tools: ["llama.cpp", "openvino"]
+
+# Quality vs Speed trade-offs
+quality_levels:
+  maximum_quality:
+    pruning_amount: 0.05
+    quantization: "fp32"
+    accuracy_expected: "100%"
+    size_reduction: "minimal"
+    
+  high_quality:
+    pruning_amount: 0.1
+    quantization: "int8"
+    accuracy_expected: "99%+"
+    size_reduction: "10-30%"
+    
+  balanced:
+    pruning_amount: 0.3
+    quantization: "int8"
+    accuracy_expected: "97-98%"
+    size_reduction: "40-60%"
+    
+  aggressive:
+    pruning_amount: 0.5
+    quantization: "int4"
+    accuracy_expected: "94-96%"
+    size_reduction: "75-90%"
+    
+  extreme:
+    pruning_amount: 0.7
+    quantization: "binary/ternary"
+    accuracy_expected: "85-90%"
+    size_reduction: "90-99%"
+
+# Recommended combinations for common scenarios
+common_scenarios:
+  "Deploying BERT to mobile":
+    approach: "distillation + int8 quantization"
+    preset: "distillation"
+    expected_outcome: "40-60% size reduction, 97-98% accuracy"
+    tools: ["sentence-transformers", "onnx-runtime"]
+
+  "Deploying Llama-2 7B":
+    approach: "GPTQ 4-bit quantization"
+    preset: "llm_gptq"
+    expected_outcome: "75% size reduction (7B -> ~2.5GB)"
+    tools: ["auto-gptq", "llama.cpp"]
+
+  "Optimizing ResNet for edge":
+    approach: "structured pruning + int8 quantization"
+    preset: "vision_cnn"
+    expected_outcome: "50-70% compression, 96%+ accuracy"
+    tools: ["torch.nn.utils.prune", "onnx-runtime"]
+
+  "Compressing VLM (CLIP)":
+    approach: "global pruning + int8 quantization"
+    preset: "multimodal"
+    expected_outcome: "50-70% size reduction, 95%+ accuracy"
+    tools: ["sparseml", "optimum"]
+
+  "Fast local inference":
+    approach: "lightweight quantization for CPU"
+    preset: "aggressive"
+    expected_outcome: "75-90% compression, suitable for cpu-only"
+    tools: ["neural-speed", "openvino", "llama.cpp"]

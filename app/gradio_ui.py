@@ -234,31 +234,9 @@ def get_device_info():
     return "\n".join(info_lines)
 
 
-def create_ui():
-    """Create and return the Gradio interface."""
-    
-    # Load initial config
-    config = load_config()
-    dist_config = config.get("distillation", {})
-    llm_config = config.get("local_llm", {})
+custom_theme = create_theme()
 
-    # Tkinter helper for file dialog
-    def open_folder_dialog():
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
-            folder_path = filedialog.askdirectory()
-            root.destroy()
-            return folder_path
-        except Exception as e:
-            return f"Error opening dialog: {str(e)}"
-
-    custom_theme = create_theme()
-    
-    css = """
+css = """
     body { background: radial-gradient(circle at 50% 0%, #1a1c2e 0%, #0f1016 100%) !important; }
     .gradio-container { background: transparent !important; }
     h1 { font-size: 3.5rem !important; text-align: center !important; margin-bottom: 1rem !important; }
@@ -304,8 +282,41 @@ def create_ui():
     /* Buttons */
     button, .lg.primary, .lg.secondary, .sm.primary, .sm.secondary, .primary { color: red !important; } 
     """
+
+def create_ui():
+    """Create and return the Gradio interface."""
+    import os
     
-    with gr.Blocks(theme=custom_theme, title=GRADIO_TITLE, css=css) as demo:
+    # Define default paths for browser
+    TEACHER_ROOT = os.getcwd()
+    API_ROOT = os.path.abspath(os.path.join(os.getcwd(), "..", ".."))
+    
+    # Load initial config
+    config = load_config()
+    dist_config = config.get("distillation", {})
+    llm_config = config.get("local_llm", {})
+
+    # Tkinter helper for file dialog
+    def open_folder_dialog(initial_dir=None):
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            import os
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            
+            start_dir = initial_dir if initial_dir else os.getcwd()
+            
+            # Use askopenfilename to make all files viewable
+            file_path = filedialog.askopenfilename(initialdir=start_dir)
+            
+            root.destroy()
+            return file_path
+        except Exception as e:
+            return f"Error opening dialog: {str(e)}"
+    
+    with gr.Blocks() as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
         gr.Markdown(GRADIO_DESCRIPTION)
         
@@ -335,7 +346,7 @@ def create_ui():
                             info="Select the library or type of the model"
                         )
 
-                browse_student_btn.click(fn=open_folder_dialog, outputs=model_path)
+                browse_student_btn.click(fn=lambda: open_folder_dialog(API_ROOT), outputs=model_path)
                 
                 # 2. Knowledge Distillation Configuration Section
                 gr.Markdown("## Knowledge Distillation Configuration")
@@ -364,7 +375,7 @@ def create_ui():
                             label="Teacher Model Type"
                         )
                 
-                browse_teacher_btn.click(fn=open_folder_dialog, outputs=teacher_model_path)
+                browse_teacher_btn.click(fn=lambda: open_folder_dialog(TEACHER_ROOT), outputs=teacher_model_path)
 
                 def toggle_teacher_visibility(mode):
                     return gr.update(visible=(mode == "teacher_student"))
@@ -419,15 +430,15 @@ def create_ui():
                 
                 with gr.Row():
                     bert_teacher_path = gr.Textbox(label="Teacher Model", placeholder="e.g., bert-base-uncased or path to folder")
-                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_teacher_path)
+                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(TEACHER_ROOT), outputs=bert_teacher_path)
                 
                 with gr.Row():
                     bert_student_path = gr.Textbox(label="Student Model", placeholder="e.g., prajjwal1/bert-tiny or path to folder")
-                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_student_path)
+                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(API_ROOT), outputs=bert_student_path)
 
                 with gr.Row():
                     bert_custom_path = gr.Textbox(label="Custom Model (Optional)", placeholder="Path to a third model folder")
-                    gr.Button("📂 Browse").click(fn=open_folder_dialog, outputs=bert_custom_path)
+                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(API_ROOT), outputs=bert_custom_path)
                 
                 bert_strategy = gr.Dropdown(
                     choices=list(STRATEGY_REGISTRY.keys()),
@@ -455,4 +466,4 @@ def create_ui():
 
 if __name__ == "__main__":
     demo = create_ui()
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, theme=custom_theme, css=css)
