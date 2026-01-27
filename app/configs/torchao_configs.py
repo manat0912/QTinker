@@ -4,7 +4,16 @@ TorchAO quantization configurations.
 from torchao.quantization import (
     Int4WeightOnlyConfig,
     Int8DynamicActivationInt8WeightConfig,
+    int4_weight_only,
+    int8_dynamic_activation_int8_weight,
 )
+
+# NF4 support if available
+try:
+    from torchao.dtypes import NF4Tensor
+    NF4_AVAILABLE = True
+except ImportError:
+    NF4_AVAILABLE = False
 
 # Try to import FP8 config if available
 try:
@@ -34,6 +43,32 @@ class FP8ConfigWrapper:
                 "Please use INT4 or INT8 quantization instead."
             )
 
+class SmoothQuantConfigWrapper:
+    """Wrapper for SmoothQuant configuration."""
+    def __init__(self, alpha=0.5, **kwargs):
+        self.alpha = alpha
+        self.kwargs = kwargs
+    
+    def __call__(self, model):
+        from torchao.quantization.smoothquant import swap_linear_with_smooth_fq_linear
+        swap_linear_with_smooth_fq_linear(model, alpha=self.alpha)
+        return model
+
+class NF4ConfigWrapper:
+    """Wrapper for NF4 quantization."""
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+    
+    def __call__(self, model):
+        from torchao.dtypes import to_nf4
+        import torch.nn as nn
+        
+        # Simple recursive layer replacement for NF4
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                # Apply NF4 to the weight
+                module.weight.data = to_nf4(module.weight.data)
+        return model
 
 def get_quantization_config(quant_type: str):
     """
@@ -44,9 +79,12 @@ def get_quantization_config(quant_type: str):
             - "INT4 (weight-only)"
             - "INT8 (dynamic)"
             - "FP8"
+            - "SmoothQuant (INT4)"
+            - "NormalFloat-4 (NF4)"
+            - "GPTQ (4-bit)"
         
     Returns:
-        TorchAO quantization config object
+        TorchAO quantization config object or wrapper
     """
     if quant_type == "INT4 (weight-only)":
         return Int4WeightOnlyConfig(group_size=128)
@@ -57,6 +95,13 @@ def get_quantization_config(quant_type: str):
             return FP8Config()
         else:
             return FP8ConfigWrapper()
+    elif quant_type == "SmoothQuant (INT4)":
+        return SmoothQuantConfigWrapper(alpha=0.5)
+    elif quant_type == "NormalFloat-4 (NF4)":
+        return NF4ConfigWrapper()
+    elif quant_type == "GPTQ (4-bit)":
+        # GPTQ requires two-step quantization, so we return a placeholder or a specific config
+        return {"mode": "gptq", "bits": 4}
     else:
         raise ValueError(f"Unsupported quantization type: {quant_type}")
 
@@ -65,6 +110,8 @@ def get_quantization_config(quant_type: str):
 AVAILABLE_CONFIGS = {
     "INT4 (weight-only)": Int4WeightOnlyConfig,
     "INT8 (dynamic)": Int8DynamicActivationInt8WeightConfig,
+    "SmoothQuant (INT4)": SmoothQuantConfigWrapper,
+    "NormalFloat-4 (NF4)": NF4ConfigWrapper,
 }
 
 if FP8_AVAILABLE:

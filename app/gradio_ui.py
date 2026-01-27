@@ -20,6 +20,7 @@ from settings.app_settings import (
 # New import for BERT distillation
 from run_distillation import run_distillation_pipeline
 from registry import STRATEGY_REGISTRY
+from reference_guide import DISTILLATION_METHODS, QUANTIZATION_METHODS
 
 def create_theme():
     """Create a custom dark theme with gradient background."""
@@ -104,6 +105,8 @@ def process_model(
     use_local_llm: bool,
     local_llm_provider: str,
     local_llm_url: str,
+    smoothquant_alpha: float = 0.5,
+    gptq_group_size: int = 128,
     progress=gr.Progress()
 ):
     """
@@ -166,7 +169,9 @@ def process_model(
             model_path.strip(),
             model_type,
             quant_type,
-            log_fn
+            log_fn,
+            smoothquant_alpha=smoothquant_alpha,
+            gptq_group_size=gptq_group_size
         )
         
         log_output.log(f"\n✓ Distilled model saved to: {distilled_path}")
@@ -183,7 +188,8 @@ def process_model(
         return log_output.log("")
 
 def run_bert_distillation_process(
-    teacher_path, student_path, custom_path, strategy, quant_type, progress=gr.Progress()
+    teacher_path, student_path, custom_path, strategy, quant_type, 
+    smoothquant_alpha=0.5, gptq_group_size=128, progress=gr.Progress()
 ):
     """Wrapper for running the BERT distillation pipeline from Gradio."""
     log_output = LogOutput()
@@ -203,7 +209,9 @@ def run_bert_distillation_process(
             strategy_name=strategy,
             output_dir="bert_distilled_models",
             quantization_type=quant_type if quant_type != "None" else None,
-            log_fn=log_fn
+            log_fn=log_fn,
+            smoothquant_alpha=smoothquant_alpha,
+            gptq_group_size=gptq_group_size
         )
         log_output.log("\n=== BERT Distillation SUCCESS ===")
         return log_output.log("")
@@ -412,6 +420,17 @@ def create_ui():
                     label="Quantization Type",
                 )
                 
+                with gr.Row(visible=False) as sq_params:
+                    sq_alpha = gr.Slider(minimum=0.0, maximum=1.0, value=0.5, step=0.05, label="SmoothQuant Alpha")
+                
+                with gr.Row(visible=False) as gptq_params:
+                    gptq_gs = gr.Dropdown(choices=[32, 64, 128, 256], value=128, label="GPTQ Group Size")
+
+                def update_quant_params(qtype):
+                    return gr.update(visible=qtype == "SmoothQuant (INT4)"), gr.update(visible=qtype == "GPTQ (4-bit)")
+                
+                quant_type.change(fn=update_quant_params, inputs=[quant_type], outputs=[sq_params, gptq_params])
+                
                 run_btn = gr.Button("Run Distill + Quantize", variant="primary")
                 log_output = gr.Textbox(label="Live Log Output", lines=20, interactive=False)
                 
@@ -420,7 +439,7 @@ def create_ui():
                     inputs=[
                         model_path, model_type, quant_type, distillation_mode,
                         teacher_model_path, teacher_model_type, use_local_llm,
-                        local_llm_provider, local_llm_url
+                        local_llm_provider, local_llm_url, sq_alpha, gptq_gs
                     ],
                     outputs=[log_output]
                 ).then(fn=lambda: get_device_info(), outputs=[device_info])
@@ -447,7 +466,7 @@ def create_ui():
                 )
                 
                 bert_quant_type = gr.Dropdown(
-                    choices=["None", "INT4", "INT8"],
+                    choices=["None"] + QUANT_TYPES,
                     label="Quantization Type",
                     value="None"
                 )
@@ -457,9 +476,19 @@ def create_ui():
 
                 bert_run_btn.click(
                     fn=run_bert_distillation_process,
-                    inputs=[bert_teacher_path, bert_student_path, bert_custom_path, bert_strategy, bert_quant_type],
+                    inputs=[bert_teacher_path, bert_student_path, bert_custom_path, bert_strategy, bert_quant_type, sq_alpha, gptq_gs],
                     outputs=[bert_log_output]
                 )
+
+            with gr.TabItem("Reference Guide"):
+                gr.Markdown("## Comprehensive Method Maps")
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("### Knowledge Distillation Methods")
+                        gr.TextArea(value=DISTILLATION_METHODS, show_label=False, lines=30, interactive=False)
+                    with gr.Column():
+                        gr.Markdown("### Quantization Formats")
+                        gr.TextArea(value=QUANTIZATION_METHODS, show_label=False, lines=30, interactive=False)
 
     return demo
 

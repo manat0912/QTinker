@@ -28,7 +28,8 @@ def run_distillation_pipeline(
     strategy_name=None,
     output_dir="distilled_models",
     quantization_type=None, # "INT4", "INT8", or None
-    log_fn=print
+    log_fn=print,
+    **kwargs
 ):
     """
     Main pipeline for model distillation and optional quantization.
@@ -138,15 +139,23 @@ def run_distillation_pipeline(
     # 5. Apply quantization if specified
     if quantization_type:
         log_fn(f"Applying {quantization_type} quantization...")
-        if quantization_type == "INT4":
-            config = Int4WeightOnlyConfig(group_size=128)
-        elif quantization_type == "INT8":
-            config = Int8DynamicConfig()
-        else:
-            log_fn("Unsupported quantization type.")
+        try:
+            from configs.torchao_configs import get_quantization_config
+            config = get_quantization_config(quantization_type)
+            
+            if hasattr(config, "__call__") and not isinstance(config, type):
+                # Update config parameters from kwargs if possible
+                if hasattr(config, "alpha") and "smoothquant_alpha" in kwargs:
+                    config.alpha = kwargs["smoothquant_alpha"]
+                if hasattr(config, "kwargs") and "gptq_group_size" in kwargs:
+                    config.kwargs["group_size"] = kwargs["gptq_group_size"]
+                    
+                student_model = config(student_model)
+            else:
+                quantize_(student_model, config)
+        except Exception as e:
+            log_fn(f"Quantization failed: {e}")
             return
-
-        quantize_(student_model, config)
         
         quantized_model_dir = os.path.join(output_dir, "quantized")
         os.makedirs(quantized_model_dir, exist_ok=True)

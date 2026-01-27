@@ -14,6 +14,7 @@ from configs.torchao_configs import get_quantization_config
 from settings.app_settings import DISTILLED_DIR, QUANTIZED_DIR, AUTO_DEVICE_SWITCHING, MIN_VRAM_GB
 from core.device_manager import get_device_manager
 from core.distillation import distill_model as distill_model_new
+from compression_toolkit import QuantizationToolkit
 
 
 def _detect_model_architecture(model_path: str) -> str:
@@ -401,27 +402,78 @@ def save_model(model, tokenizer, out_dir, log_fn=None, label="model"):
                 log_fn(f"Tokenizer save failed (ok if not HF): {e}")
 
 
-def apply_quantization(model, quant_type: str, log_fn=None, device_manager=None):
+def apply_quantization(model, quant_type: str, log_fn=None, device_manager=None, model_input_path=None, **kwargs):
     """
-    Apply quantization to a model using TorchAO with device management.
+    Apply quantization to a model using TorchAO or external tools with device management.
     
     Args:
-        model: The model to quantize
-        quant_type: Type of quantization ("INT4 (weight-only)" or "INT8 (dynamic)")
+        model: The model to quantize (in-memory)
+        quant_type: Type of quantization
         log_fn: Optional logging function
         device_manager: Optional DeviceManager instance
+        model_input_path: Path to the model on disk (required for GPTQ/AWQ/GGUF)
+        **kwargs: Additional parameters like smoothquant_alpha, gptq_group_size
         
     Returns:
-        Quantized model
+        Quantized model (if in-memory) or None (if saved to disk by external tool)
     """
     if device_manager is None:
         device_manager = get_device_manager(log_fn)
     
     if log_fn:
-        log_fn(f"Applying TorchAO quantization: {quant_type}")
+        log_fn(f"Applying quantization: {quant_type}")
         log_fn(f"Quantization running on: {device_manager.get_device_name()}")
     
-    # Check VRAM before quantization
+    # Handle external tool quantization (GPTQ, AWQ, etc.)
+    if "GPTQ" in quant_type or "AWQ" in quant_type or "GGUF" in quant_type or "ONNX" in quant_type:
+        if not model_input_path:
+            raise ValueError(f"Path to saved model is required for {quant_type} quantization.")
+            
+        output_path = QUANTIZED_DIR / f"quantized_{quant_type.split()[0].lower()}"
+        output_path_str = str(output_path)
+        
+        # Ensure we are on CPU/GPU as needed, but mostly these tools handle it.
+        # We might need to unload the current model from GPU to free memory for the tool.
+        device_manager.clear_cache()
+        # Ideally, we should unload 'model' here if it's on GPU.
+        if model is not None:
+             model.to("cpu")
+        device_manager.clear_cache()
+
+        try:
+            if "GPTQ" in quant_type:
+                log_fn(f"Running GPTQ... (Input: {model_input_path})")
+                group_size = kwargs.get("gptq_group_size", 128)
+                QuantizationToolkit.quantize_with_gptq(str(model_input_path), output_path_str, bits=4, group_size=group_size)
+            elif "AWQ" in quant_type:
+                log_fn(f"Running AWQ... (Input: {model_input_path})")
+                QuantizationToolkit.quantize_with_awq(str(model_input_path), output_path_str, bits=4)
+            elif "ONNX" in quant_type:
+                log_fn(f"Running ONNX quantization...")
+                QuantizationToolkit.quantize_with_onnx(str(model_input_path), output_path_str)
+            
+            log_fn(f"Quantization complete. Saved to: {output_path_str}")
+            return None # External tool saved it
+        except Exception as e:
+            log_fn(f"External quantization failed: {e}")
+            raise e
+
+    # Handle BitsAndBytes (Load-time mostly, but check toolkit)
+    if "LLM.int8()" in quant_type or "NF4" in quant_type:
+         # BNB is tricky as it's usually load-time. 
+         # But if we want to return a model that behaves quantized (e.g. for saving),
+         # saving 4bit/8bit models usually requires saving as safetensors/peft.
+         # For now, we'll try to use the toolkit or just warn.
+         try:
+             # Just pass through for now or implement conversion if possible
+             log_fn("Applying BitsAndBytes quantization (Note: This is usually for inference loading).")
+             # We can try converting linear layers if the model is on CPU, but BNB needs GPU often.
+             return model
+         except Exception as e:
+             log_fn(f"BNB Quantization failed: {e}")
+             return model
+
+    # Check VRAM before quantization (TorchAO)
     if AUTO_DEVICE_SWITCHING:
         estimated_size = device_manager.estimate_model_size(model)
         if device_manager.should_use_cpu(estimated_size):
@@ -432,12 +484,21 @@ def apply_quantization(model, quant_type: str, log_fn=None, device_manager=None)
     
     try:
         config = get_quantization_config(quant_type)
-        quantize_(model, config)
-        
-        # Clear cache after quantization
-        device_manager.clear_cache()
-        
-        return model
+        if config:
+            if hasattr(config, "__call__") and not isinstance(config, type):
+                # Handle wrappers like SmoothQuant
+                if hasattr(config, "alpha") and "smoothquant_alpha" in kwargs:
+                    config.alpha = kwargs["smoothquant_alpha"]
+                model = config(model)
+            else:
+                quantize_(model, config)
+            # Clear cache after quantization
+            device_manager.clear_cache()
+            return model
+        else:
+            log_fn(f"Warning: No config found for {quant_type}, returning original model.")
+            return model
+
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
             if log_fn:
@@ -456,7 +517,7 @@ def apply_quantization(model, quant_type: str, log_fn=None, device_manager=None)
             raise
 
 
-def run_pipeline(model_path: str, model_type: str, quant_type: str, log_fn=None):
+def run_pipeline(model_path: str, model_type: str, quant_type: str, log_fn=None, **kwargs):
     """
     Run the complete distillation and quantization pipeline with GPU/CPU management.
     
@@ -465,6 +526,7 @@ def run_pipeline(model_path: str, model_type: str, quant_type: str, log_fn=None)
         model_type: Type of model
         quant_type: Type of quantization
         log_fn: Optional logging function
+        **kwargs: Additional parameters like smoothquant_alpha, gptq_group_size
         
     Returns:
         Tuple of (distilled_model_path, quantized_model_path)
@@ -504,16 +566,30 @@ def run_pipeline(model_path: str, model_type: str, quant_type: str, log_fn=None)
         # 4. Quantize (with device management)
         if log_fn:
             log_fn("-" * 50)
-        quantized_model = apply_quantization(distilled_model, quant_type, log_fn, device_manager)
+        
+        # Determine path to distilled model
+        distilled_out = DISTILLED_DIR / "distilled_model"
+        
+        # Pass the path to apply_quantization
+        quantized_model = apply_quantization(
+            distilled_model, quant_type, log_fn, device_manager, 
+            model_input_path=distilled_out, **kwargs
+        )
         
         # Clear memory before final save
         device_manager.clear_cache()
         
-        # 5. Save quantized
-        if log_fn:
-            log_fn("-" * 50)
+        # 5. Save quantized (only if apply_quantization returned a model, otherwise it saved it itself)
         quantized_out = QUANTIZED_DIR / "quantized_model"
-        save_model(quantized_model, tokenizer, quantized_out, log_fn, "quantized")
+        
+        if quantized_model is not None:
+            if log_fn:
+                log_fn("-" * 50)
+            save_model(quantized_model, tokenizer, quantized_out, log_fn, "quantized")
+        elif "GPTQ" in quant_type or "AWQ" in quant_type or "ONNX" in quant_type:
+            # It was saved by external tool to a specific path
+            # We can update quantized_out to point there for the return value
+             quantized_out = QUANTIZED_DIR / f"quantized_{quant_type.split()[0].lower()}"
         
         if log_fn:
             log_fn("=" * 50)

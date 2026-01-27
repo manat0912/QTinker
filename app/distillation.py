@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -91,3 +90,90 @@ class MultiTeacherKD(BaseDistillationStrategy):
         teacher_loss = self.logit_kd_teacher.compute_loss(student_outputs, teacher_outputs)
         custom_loss = self.logit_kd_custom.compute_loss(student_outputs, custom_outputs)
         return (self.teacher_weight * teacher_loss) + (self.custom_weight * custom_loss)
+
+class HardLabelKD(BaseDistillationStrategy):
+    """Hard-Label Knowledge Distillation (matching argmax of logits)."""
+    def __init__(self, teacher_model, student_model):
+        super().__init__(teacher_model, student_model)
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def compute_loss(self, student_outputs, teacher_outputs, custom_outputs=None):
+        teacher_logits = teacher_outputs.logits
+        student_logits = student_outputs.logits
+        
+        # Get hard labels from teacher
+        teacher_labels = torch.argmax(teacher_logits, dim=-1)
+        
+        return self.loss_fn(student_logits.view(-1, student_logits.size(-1)), teacher_labels.view(-1))
+
+class FeatureMatchingKD(BaseDistillationStrategy):
+    """Intermediate Feature Matching (Hidden States)."""
+    def __init__(self, teacher_model, student_model, teacher_layer_idx=-1, student_layer_idx=-1):
+        super().__init__(teacher_model, student_model)
+        self.teacher_layer_idx = teacher_layer_idx
+        self.student_layer_idx = student_layer_idx
+        self.loss_fn = nn.MSELoss()
+        self.projection = None
+        self.validate_models()
+
+    def validate_models(self):
+        # Setup projection if dims don't match
+        with torch.no_grad():
+            t_dim = self.teacher_model.config.hidden_size
+            s_dim = self.student_model.config.hidden_size
+        
+        if t_dim != s_dim:
+            self.projection = nn.Linear(s_dim, t_dim)
+
+    def compute_loss(self, student_outputs, teacher_outputs, custom_outputs=None):
+        # Access hidden states (requires output_hidden_states=True)
+        if not hasattr(teacher_outputs, 'hidden_states') or not teacher_outputs.hidden_states:
+            return torch.tensor(0.0, device=student_outputs.logits.device)
+
+        t_hidden = teacher_outputs.hidden_states[self.teacher_layer_idx]
+        s_hidden = student_outputs.hidden_states[self.student_layer_idx]
+        
+        if self.projection:
+            if self.projection.weight.device != s_hidden.device:
+                self.projection = self.projection.to(s_hidden.device)
+            s_hidden = self.projection(s_hidden)
+            
+        return self.loss_fn(s_hidden, t_hidden)
+
+class CosineSimilarityKD(BaseDistillationStrategy):
+    """Cosine Similarity Loss on Logits/Features."""
+    def __init__(self, teacher_model, student_model):
+        super().__init__(teacher_model, student_model)
+        self.loss_fn = nn.CosineEmbeddingLoss()
+
+    def compute_loss(self, student_outputs, teacher_outputs, custom_outputs=None):
+        t_logits = teacher_outputs.logits
+        s_logits = student_outputs.logits
+        
+        # Flatten and target 1 (similar)
+        target = torch.ones(t_logits.size(0), device=t_logits.device)
+        return self.loss_fn(s_logits, t_logits, target)
+
+class AttentionDistillationKD(BaseDistillationStrategy):
+    """Distillation matching attention scores."""
+    def __init__(self, teacher_model, student_model, teacher_layer_idx=-1, student_layer_idx=-1):
+        super().__init__(teacher_model, student_model)
+        self.teacher_layer_idx = teacher_layer_idx
+        self.student_layer_idx = student_layer_idx
+        self.loss_fn = nn.MSELoss()
+
+    def compute_loss(self, student_outputs, teacher_outputs, custom_outputs=None):
+        if not hasattr(teacher_outputs, 'attentions') or not teacher_outputs.attentions:
+            return torch.tensor(0.0, device=student_outputs.logits.device)
+        
+        t_attn = teacher_outputs.attentions[self.teacher_layer_idx]
+        s_attn = student_outputs.attentions[self.student_layer_idx]
+        
+        # Match heads if dimensions differ (simple mean for now if needed, or projection)
+        if t_attn.shape != s_attn.shape:
+            # Simple heuristic: pool heads or match minimum
+            min_heads = min(t_attn.shape[1], s_attn.shape[1])
+            t_attn = t_attn[:, :min_heads, :, :]
+            s_attn = s_attn[:, :min_heads, :, :]
+            
+        return self.loss_fn(s_attn, t_attn)

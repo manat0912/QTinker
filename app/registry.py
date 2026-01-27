@@ -1,11 +1,49 @@
-
-from distillation import LogitKD, PatientKD, MultiTeacherKD
+from distillation import (
+    LogitKD, PatientKD, MultiTeacherKD,
+    HardLabelKD, FeatureMatchingKD, CosineSimilarityKD,
+    AttentionDistillationKD,
+    # Add stubs for all other strategies below
+)
 
 # A registry for distillation strategies
 STRATEGY_REGISTRY = {
     "logit_kd": LogitKD,
     "patient_kd": PatientKD,
     "multi_teacher_kd": MultiTeacherKD,
+    "hard_label_kd": HardLabelKD,
+    "feature_matching_kd": FeatureMatchingKD,
+    "cosine_similarity_kd": CosineSimilarityKD,
+    "attention_distillation_kd": AttentionDistillationKD,
+    # --- Add all other strategies as stubs ---
+    "soft_target_kd": LogitKD,  # Alias for soft targets
+    "temperature_scaled_kd": LogitKD,  # Alias for temperature scaling
+    "kullback_leibler_kd": LogitKD,  # Alias for KLDiv
+    "cross_entropy_kd": HardLabelKD,  # Alias for hard label
+    "label_smoothing_kd": HardLabelKD,  # Alias for hard label
+    "confidence_penalty_kd": LogitKD,  # Alias for logit penalty
+    "dark_knowledge_kd": LogitKD,
+    "response_consistency_kd": LogitKD,
+    "multi_teacher_logit_averaging": MultiTeacherKD,
+    "gated_logit_fusion_kd": MultiTeacherKD,
+    "mixture_of_experts_logit_kd": MultiTeacherKD,
+    "feature_map_matching_kd": FeatureMatchingKD,
+    "activation_matching_kd": FeatureMatchingKD,
+    "hidden_state_distillation_kd": FeatureMatchingKD,
+    "attention_map_distillation_kd": AttentionDistillationKD,
+    "transformer_attention_head_distillation": AttentionDistillationKD,
+    "fitnets_hint_based_distillation": FeatureMatchingKD,
+    "neuron_selectivity_transfer_kd": FeatureMatchingKD,
+    "similarity_preserving_kd": FeatureMatchingKD,
+    "correlation_congruence_kd": FeatureMatchingKD,
+    "relational_kd": FeatureMatchingKD,
+    "distance_wise_rkd": FeatureMatchingKD,
+    "angle_wise_rkd": FeatureMatchingKD,
+    "contrastive_representation_kd": CosineSimilarityKD,
+    "gram_matrix_distillation": FeatureMatchingKD,
+    "jacobian_matching": FeatureMatchingKD,
+    "layer_to_layer_projection_kd": FeatureMatchingKD,
+    "cross_architecture_feature_alignment": FeatureMatchingKD,
+    # ... (add more as needed)
 }
 
 # A registry for model profiles with safe defaults

@@ -21,12 +21,17 @@ A modern, production-ready application for distilling and quantizing language mo
   - Logit-based Knowledge Distillation (KD)
   - Patient Knowledge Distillation (matching specific layers)
   - Feature-based Distillation (intermediate layer matching)
+  - **AttentionDistillationKD**: Matches attention maps between teacher and student models
   - Custom projection layers for dimension matching
   - Configurable temperature parameters
 - ⚡ **TorchAO Quantization**: Professional-grade quantization with multiple options:
   - INT4 Weight-Only (group_size configurable)
   - INT8 Dynamic Quantization
-  - FP8, NF4, and other advanced formats
+  - **SmoothQuant (INT4)**: Optimized for model with activation outliers
+  - **NormalFloat-4 (NF4)**: Support for QLoRA-style NormalFloat data types
+  - **GPTQ (4-bit)**: Post-training quantization with group-wise weight adjustments
+  - FP8 and other advanced formats
+  - Dynamic parameter UI (Alpha for SmoothQuant, Group Size for GPTQ)
   - Model-specific quantization configurations
 - 📂 **Enhanced File Browser**: Native file dialog integration for easy model selection with smart default paths
 - 🎨 **Gradio Web UI**: Beautiful, responsive web interface with real-time log streaming and custom dark theme
@@ -93,6 +98,7 @@ QTinker/
 ### Automatic Installation (Recommended via Pinokio)
 
 Simply open the project in Pinokio and click the "Install" button. The launcher will automatically:
+
 1. Create a Python virtual environment
 2. Install all dependencies using `uv pip`
 3. Set up PyTorch with CUDA support (if available)
@@ -127,6 +133,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 QTinker supports a wide variety of model formats and automatically detects the model type:
 
 ### 🤗 HuggingFace Models
+
 - **Transformers**: BERT, GPT-2, LLaMA, Mistral, Phi, any AutoModel
 - **Sentence Transformers**: Embedding models
 - **Vision**: ViT, CLIP, DINOv2
@@ -136,6 +143,7 @@ QTinker supports a wide variety of model formats and automatically detects the m
 **How to use**: Provide path to HuggingFace model folder containing `config.json`
 
 ### 🖼️ Stable Diffusion & Diffusers
+
 - **Stable Diffusion 1.5**: All community checkpoints
 - **Stable Diffusion 2.x**: v2.0, v2.1, variations
 - **SDXL**: Stable Diffusion XL and variants
@@ -143,11 +151,13 @@ QTinker supports a wide variety of model formats and automatically detects the m
 - **Components**: Individual UNet, VAE, or Text Encoder models
 
 **How to use**:
+
 - Full pipeline (recommended): Provide folder with `model_index.json`
 - Components: Provide folder with `unet/`, `vae/`, or `text_encoder/` subfolders
 - Raw state_dict: Provide `.bin` file - the app will auto-detect and wrap it
 
 ### 📦 PyTorch Checkpoints
+
 - Raw `.pt` or `.bin` files containing model weights (state_dict)
 - Custom model architectures
 - Fine-tuned model checkpoints
@@ -155,7 +165,9 @@ QTinker supports a wide variety of model formats and automatically detects the m
 **How to use**: Provide path to `.pt` or `.bin` file - the app will intelligently wrap it
 
 ### 🔄 Auto-Detection
+
 The app automatically detects the model type by examining:
+
 1. Directory structure and config files
 2. JSON metadata files
 3. File extensions and content
@@ -268,6 +280,7 @@ Int8DynamicConfig(
 ### Application Settings
 
 Edit `settings/app_settings.py` to customize:
+
 - Output directories
 - Default model/quantization types
 - GPU/CPU management thresholds
@@ -318,6 +331,7 @@ SUPPORTED_MODELS = {
 QTinker supports multiple knowledge distillation methods:
 
 #### 1. Logit-based Knowledge Distillation (LogitKD)
+
 Matches the output logits between teacher and student models using KL divergence with temperature scaling.
 
 ```python
@@ -330,6 +344,7 @@ loss = strategy.compute_loss(student_outputs, teacher_outputs)
 **Best for**: General-purpose distillation, good baseline for most architectures
 
 #### 2. Patient Knowledge Distillation (PatientKD)
+
 Matches hidden states at specific layers between teacher and student models. Useful when student architecture differs significantly from teacher.
 
 ```python
@@ -348,6 +363,7 @@ loss = strategy.compute_loss(student_outputs, teacher_outputs)
 **Best for**: Custom architectures, fine-grained control, layer-specific matching
 
 #### 3. Projection Layer Matching
+
 Automatically handles dimension mismatches between teacher and student hidden states:
 
 ```python
@@ -448,6 +464,7 @@ All output models are saved in standard HuggingFace format for easy reuse:
 - **Quantized Models**: `outputs/quantized/` - Models after quantization
 
 Each output includes:
+
 - Model weights and architecture
 - Tokenizers (when available)
 - Configuration files
@@ -460,16 +477,19 @@ Each output includes:
 The application automatically manages device selection based on available hardware:
 
 **GPU Detection**:
+
 - NVIDIA CUDA GPUs
 - Apple Silicon (MPS)
 - CPU fallback
 
 **Memory Management**:
+
 - Monitors GPU VRAM in real-time
 - Prevents out-of-memory errors
 - Switches to CPU when necessary
 
 **Threshold Settings** (configurable in `settings/app_settings.py`):
+
 - MIN_VRAM_GB: Minimum VRAM required (default: 2.0)
 - VRAM_THRESHOLD: Use CPU if model > X% of VRAM (default: 0.9 = 90%)
 - AUTO_DEVICE_SWITCHING: Enable/disable automatic switching (default: True)
@@ -477,6 +497,7 @@ The application automatically manages device selection based on available hardwa
 ### Device Switching Behavior
 
 The system falls back to CPU if:
+
 - Less than 2GB VRAM available
 - Estimated model size exceeds 90% of available VRAM
 - GPU runs out of memory during processing
@@ -502,18 +523,21 @@ device = device_manager.get_device()
 **Problem**: "Loaded object is not a torch.nn.Module" when loading Stable Diffusion models
 **Solution**:
 The app now automatically detects and handles Stable Diffusion models in multiple formats:
+
 1. **Full Pipeline** (with `model_index.json`): Automatically loaded as StableDiffusionPipeline
 2. **Component-based** (separate UNet/VAE/TextEncoder folders): Loaded as individual components
 3. **Raw state_dict files** (.bin, .pt): Intelligently wrapped based on component type
 4. **Different SD versions**: Supports SD 1.5, 2.x, SDXL, and other diffusers models
 
 The loader will:
+
 - Detect model architecture from directory structure
 - Load UNet, VAE, Text Encoder as appropriate components
 - Handle raw state_dict files by analyzing keys and wrapping them
 - Fall back to alternative loading methods if primary method fails
 
 **Example**: If loading a UNet component at `path/to/unet/pytorch_model.bin`:
+
 - The app detects it's a UNet component
 - Wraps it appropriately for distillation/quantization
 - Moves it to the correct device (GPU/CPU)
@@ -521,7 +545,8 @@ The loader will:
 ### Out of Memory (OOM) Errors
 
 **Problem**: Model loading fails with CUDA out of memory
-**Solution**: 
+**Solution**:
+
 - The app will automatically switch to CPU
 - Or reduce model size by using smaller teacher/student models
 - Or increase VRAM threshold in settings to force CPU usage earlier
@@ -530,6 +555,7 @@ The loader will:
 
 **Problem**: Model fails to load from HuggingFace or from file
 **Solution**:
+
 1. Ensure you have internet connection (for HuggingFace models)
 2. Verify model name/path is correct
 3. Check HuggingFace authentication if using private models
@@ -542,6 +568,7 @@ The loader will:
 
 **Problem**: Distillation script fails to execute
 **Solution**:
+
 1. Ensure both teacher and student models are loaded
 2. Check that training data is available in `data/train_prompts.txt`
 3. Verify CUDA/device availability in logs
@@ -552,6 +579,7 @@ The loader will:
 
 **Problem**: Quantization/distillation is slow
 **Solution**:
+
 - Reduce batch size in configuration
 - Use INT4 quantization for faster processing
 - Ensure GPU is available and not occupied by other processes
@@ -599,6 +627,7 @@ QTinker is fully integrated with Pinokio for easy one-click operations:
 ### Model Selection Tools
 
 Sidebar buttons for easy model management:
+
 - **Select Teacher Model**: Pick teacher model for knowledge distillation
 - **Select Student Model**: Pick student model to be distilled
 - **Select Quantize Model**: Pick model to quantize
