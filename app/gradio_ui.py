@@ -17,10 +17,12 @@ from settings.app_settings import (
     GRADIO_DESCRIPTION,
 )
 
-# New import for BERT distillation
+# New import for BERT distillation and Quantization
 from run_distillation import run_distillation_pipeline
 from registry import STRATEGY_REGISTRY
 from reference_guide import DISTILLATION_METHODS, QUANTIZATION_METHODS
+from core.quantizer import quantize_model
+from enhanced_file_browser import create_file_browser_ui
 
 def create_theme():
     """Create a custom dark theme with gradient background."""
@@ -102,6 +104,7 @@ def process_model(
     distillation_mode: str,
     teacher_model_path: str,
     teacher_model_type: str,
+    teacher_model_arch: str,
     use_local_llm: bool,
     local_llm_provider: str,
     local_llm_url: str,
@@ -150,6 +153,7 @@ def process_model(
                 return "ERROR: Teacher model path is required for teacher-student distillation."
             config["distillation"]["teacher_model_path"] = teacher_model_path.strip()
             config["distillation"]["teacher_type"] = teacher_model_type
+            config["distillation"]["teacher_arch"] = teacher_model_arch
         
         if "local_llm" not in config:
             config["local_llm"] = {}
@@ -222,6 +226,32 @@ def run_bert_distillation_process(
         import traceback
         log_output.log(traceback.format_exc())
         return log_output.log("")
+
+
+def run_quantization_process(model_id, quant_level, progress=gr.Progress()):
+    """Wrapper for running the quantization pipeline from Gradio."""
+    log_output = LogOutput()
+    
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_id:
+            return "ERROR: Model ID or Path is required."
+
+        zip_path = quantize_model(model_id, quant_level, log_fn=log_fn)
+        log_output.log(f"\n✓ Quantized model zipped to: {zip_path}")
+        log_output.log("\n=== QUANTIZATION SUCCESS ===")
+        # Return the folder zip path as a file for Gradio
+        return log_output.log(""), gr.update(value=zip_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
 
 
 def get_device_info():
@@ -303,26 +333,6 @@ def create_ui():
     config = load_config()
     dist_config = config.get("distillation", {})
     llm_config = config.get("local_llm", {})
-
-    # Tkinter helper for file dialog
-    def open_folder_dialog(initial_dir=None):
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-            import os
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
-            
-            start_dir = initial_dir if initial_dir else os.getcwd()
-            
-            # Use askopenfilename to make all files viewable
-            file_path = filedialog.askopenfilename(initialdir=start_dir)
-            
-            root.destroy()
-            return file_path
-        except Exception as e:
-            return f"Error opening dialog: {str(e)}"
     
     with gr.Blocks() as demo:
         gr.Markdown(f"# {GRADIO_TITLE}")
@@ -340,11 +350,9 @@ def create_ui():
                     with gr.Column(scale=3):
                         model_path = gr.Textbox(
                             label="Input Model Path (Target for Processing)",
-                            placeholder="Select a folder path...",
+                            placeholder="Select a folder path from the Browser tab...",
                             info="Path to the model you want to quantize/distill (e.g. HuggingFace folder)"
                         )
-                    with gr.Column(scale=1):
-                        browse_student_btn = gr.Button("📂 Browse System", variant="secondary")
                     
                     with gr.Column(scale=2):
                         model_type = gr.Dropdown(
@@ -353,8 +361,6 @@ def create_ui():
                             label="Input Model Library/Type",
                             info="Select the library or type of the model"
                         )
-
-                browse_student_btn.click(fn=lambda: open_folder_dialog(API_ROOT), outputs=model_path)
                 
                 # 2. Knowledge Distillation Configuration Section
                 gr.Markdown("## Knowledge Distillation Configuration")
@@ -369,21 +375,24 @@ def create_ui():
                     with gr.Column(scale=3):
                         teacher_model_path = gr.Textbox(
                             label="Teacher Model Path",
-                            placeholder="Select a folder path...",
+                            placeholder="Select a folder path from the Browser tab...",
                             value=dist_config.get("teacher_model_path", ""),
                             info="Required for teacher-student mode"
                         )
-                    with gr.Column(scale=1):
-                        browse_teacher_btn = gr.Button("📂 Browse System", variant="secondary")
 
-                    with gr.Column(scale=2):
                         teacher_model_type = gr.Dropdown(
                             choices=MODEL_TYPES,
                             value=dist_config.get("teacher_type", DEFAULT_MODEL_TYPE),
-                            label="Teacher Model Type"
+                            label="Teacher Model Source/Type"
                         )
-                
-                browse_teacher_btn.click(fn=lambda: open_folder_dialog(TEACHER_ROOT), outputs=teacher_model_path)
+                    
+                    with gr.Column(scale=2):
+                        teacher_model_arch = gr.Dropdown(
+                            choices=["Causal LM (GPT, Llama)", "Masked LM (BERT, RoBERTa)", "Generic AutoModel"],
+                            value=dist_config.get("teacher_arch", "Causal LM (GPT, Llama)"),
+                            label="Teacher Architecture",
+                            info="Select based on teacher model type"
+                        )
 
                 def toggle_teacher_visibility(mode):
                     return gr.update(visible=(mode == "teacher_student"))
@@ -438,8 +447,9 @@ def create_ui():
                     fn=process_model,
                     inputs=[
                         model_path, model_type, quant_type, distillation_mode,
-                        teacher_model_path, teacher_model_type, use_local_llm,
-                        local_llm_provider, local_llm_url, sq_alpha, gptq_gs
+                        teacher_model_path, teacher_model_type, teacher_model_arch,
+                        use_local_llm, local_llm_provider, local_llm_url, 
+                        sq_alpha, gptq_gs
                     ],
                     outputs=[log_output]
                 ).then(fn=lambda: get_device_info(), outputs=[device_info])
@@ -448,16 +458,13 @@ def create_ui():
                 gr.Markdown("## BERT Distillation and Quantization")
                 
                 with gr.Row():
-                    bert_teacher_path = gr.Textbox(label="Teacher Model", placeholder="e.g., bert-base-uncased or path to folder")
-                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(TEACHER_ROOT), outputs=bert_teacher_path)
+                    bert_teacher_path = gr.Textbox(label="Teacher Model", placeholder="Select path from Browser tab...")
                 
                 with gr.Row():
-                    bert_student_path = gr.Textbox(label="Student Model", placeholder="e.g., prajjwal1/bert-tiny or path to folder")
-                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(API_ROOT), outputs=bert_student_path)
+                    bert_student_path = gr.Textbox(label="Student Model", placeholder="Select path from Browser tab...")
 
                 with gr.Row():
-                    bert_custom_path = gr.Textbox(label="Custom Model (Optional)", placeholder="Path to a third model folder")
-                    gr.Button("📂 Browse").click(fn=lambda: open_folder_dialog(API_ROOT), outputs=bert_custom_path)
+                    bert_custom_path = gr.Textbox(label="Custom Model (Optional)", placeholder="Select path from Browser tab...")
                 
                 bert_strategy = gr.Dropdown(
                     choices=list(STRATEGY_REGISTRY.keys()),
@@ -479,6 +486,59 @@ def create_ui():
                     inputs=[bert_teacher_path, bert_student_path, bert_custom_path, bert_strategy, bert_quant_type, sq_alpha, gptq_gs],
                     outputs=[bert_log_output]
                 )
+
+            with gr.TabItem("Quantize Any Model"):
+                gr.Markdown("## 🌌 AI Model Shrinker: Quantize Your Models!")
+                gr.Markdown(
+                    "Enter a Hugging Face Model ID to effortlessly quantize it and reduce its size and memory footprint. "
+                    "This can significantly improve inference speed and allow larger models to run on more modest hardware. "
+                    "<br><b>Important Notes:</b>"
+                    "<ul>"
+                    "<li><b>GPU Required:</b> 8-bit and 4-bit quantization (using `bitsandbytes`) require a **CUDA-enabled GPU** to work properly.</li>"
+                    "<li><b>Compatibility:</b> Not all models are guaranteed to work perfectly after quantization, especially 4-bit.</li>"
+                    "<li><b>Downloading:</b> The output will be a `.zip` file containing the quantized model's directory.</li>"
+                    "</ul>"
+                )
+                
+                with gr.Row():
+                    with gr.Column(scale=3):
+                        quant_model_id = gr.Textbox(
+                            label="Hugging Face Model ID or Local Path",
+                            placeholder="e.g., stabilityai/stablelm-zephyr-3b or meta-llama/Llama-2-7b-hf"
+                        )
+
+                quant_level_choice = gr.Dropdown(
+                    choices=["8-bit (INT8)", "4-bit (INT4)", "FP16 (Half-Precision)"],
+                    label="Select Quantization Level",
+                    value="8-bit (INT8)"
+                )
+                
+                quant_run_btn = gr.Button("🚀 Start Quantization", variant="primary")
+                
+                quant_download = gr.File(label="Download Quantized Model", visible=False)
+                quant_log_output = gr.Textbox(label="Quantization Log", lines=15, interactive=False)
+
+                quant_run_btn.click(
+                    fn=run_quantization_process,
+                    inputs=[quant_model_id, quant_level_choice],
+                    outputs=[quant_log_output, quant_download]
+                )
+
+            with gr.TabItem("📂 Browser"):
+                browser_ui, browser_selected_path = create_file_browser_ui()
+                with gr.Row():
+                    copy_to_student = gr.Button("Use for Student Model")
+                    copy_to_teacher = gr.Button("Use for Teacher Model")
+                    copy_to_bert_student = gr.Button("Use for BERT Student")
+                    copy_to_bert_teacher = gr.Button("Use for BERT Teacher")
+                    copy_to_quantize_input = gr.Button("Use for Quantize Input")
+                
+                # Connect the browser's selected_path to the main UI textboxes
+                copy_to_student.click(lambda x: x, inputs=browser_selected_path, outputs=model_path)
+                copy_to_teacher.click(lambda x: x, inputs=browser_selected_path, outputs=teacher_model_path)
+                copy_to_bert_student.click(lambda x: x, inputs=browser_selected_path, outputs=bert_student_path)
+                copy_to_bert_teacher.click(lambda x: x, inputs=browser_selected_path, outputs=bert_teacher_path)
+                copy_to_quantize_input.click(lambda x: x, inputs=browser_selected_path, outputs=quant_model_id)
 
             with gr.TabItem("Reference Guide"):
                 gr.Markdown("## Comprehensive Method Maps")

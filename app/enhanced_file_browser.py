@@ -149,6 +149,54 @@ class EnhancedFileBrowser:
             tree["children"].append(child)
         
         return tree
+
+    def list_path(self, path: Optional[str] = None, show_hidden: bool = False) -> List[FileInfo]:
+        """
+        Get non-recursive list of files and directories for a given path.
+        
+        Args:
+            path: Path to scan
+            show_hidden: Whether to show hidden files
+            
+        Returns:
+            List of FileInfo objects for the directory contents.
+        """
+        if path is None:
+            path = str(self.root_path)
+        
+        target_path = PinokioPathDetector.resolve_path(path)
+        results = []
+
+        if not target_path.is_dir():
+            return []
+
+        try:
+            # Sort to show directories first, then by name
+            items = sorted(target_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except (PermissionError, OSError) as e:
+            print(f"Error scanning directory: {e}")
+            return []
+
+        for item in items:
+            if not show_hidden and item.name.startswith("."):
+                continue
+            if item.is_dir() and item.name in self.SKIP_DIRS:
+                continue
+            
+            try:
+                size = item.stat().st_size if item.is_file() else None
+            except (FileNotFoundError, PermissionError):
+                size = None
+
+            file_info = FileInfo(
+                path=item,
+                name=item.name,
+                is_dir=item.is_dir(),
+                size=size,
+            )
+            results.append(file_info)
+
+        return results
     
     def get_flat_file_list(
         self,
@@ -422,37 +470,117 @@ class ModelPathSelector:
         return True, "Valid model path"
 
 
+def create_file_browser_ui():
+    """Create a Gradio UI for the file browser with folder and file selection."""
+    import gradio as gr
+    
+    # Initialize browser. It will default to the Pinokio API path.
+    browser = EnhancedFileBrowser(root_path=None)
+
+    with gr.Blocks() as demo:
+        gr.Markdown("## Enhanced File and Folder Browser")
+        gr.Markdown("Click on a folder to navigate into it. Click on a file to select it. Use the buttons to select the current folder or navigate up.")
+
+        # State to hold the current directory's contents (list of FileInfo objects)
+        contents_state = gr.State([])
+
+        with gr.Row():
+            selected_path = gr.Textbox(label="Selected Path", interactive=True, placeholder="Selected file or folder path will appear here...")
+            confirm_btn = gr.Button("✅ Confirm Selection", variant="primary")
+        
+        with gr.Row():
+            status_output = gr.Textbox(label="Status", interactive=False, placeholder="Confirmation status will appear here...")
+
+        with gr.Row():
+            current_path_input = gr.Textbox(label="Current Path", value=str(browser.root_path), interactive=True)
+            up_btn = gr.Button("⬆️ Up")
+            select_folder_btn = gr.Button("📂 Select Current Folder")
+
+        # Using gr.Radio for its stable select event
+        file_list_radio = gr.Radio(label="Files and Folders", interactive=True)
+        
+        def update_browser_view(path_str):
+            """Updates the UI view for a given path."""
+            try:
+                path = PinokioPathDetector.resolve_path(path_str)
+                if not path.is_dir():
+                    path = path.parent
+            except Exception:
+                path = browser.root_path
+
+            contents = browser.list_path(str(path))
+            choices = [f"{'📁' if fi.is_dir else '📄'} {fi.name}" for fi in contents]
+            
+            return str(path), contents, gr.update(choices=choices, value=None)
+
+        def handle_selection(selected_choice: str, current_path: str, current_contents: list):
+            """Handles a selection from the radio list."""
+            if not selected_choice or not current_contents:
+                return gr.update(), gr.update()
+
+            # Find the FileInfo object corresponding to the selection
+            try:
+                choices = [f"{'📁' if fi.is_dir else '📄'} {fi.name}" for fi in current_contents]
+                idx = choices.index(selected_choice)
+                selected_item = current_contents[idx]
+            except (ValueError, IndexError):
+                return current_path, gr.update()
+
+            if selected_item.is_dir:
+                # A directory was selected, so we navigate into it.
+                return str(selected_item.path), gr.update()
+            else:
+                # A file was selected. We update the 'selected_path' textbox.
+                return current_path, str(selected_item.path)
+
+        def go_up(path_str: str):
+            """Navigate to the parent directory."""
+            return str(Path(path_str).parent)
+
+        def confirm_selection(selection: str):
+            """Confirm the selection and provide feedback."""
+            if not selection:
+                return "No path selected to confirm."
+            return f"Confirmed selection: {selection}"
+
+        # --- Event Handlers ---
+
+        # When a path is submitted (e.g., user types and hits enter, or another event updates it)
+        current_path_input.submit(
+            fn=update_browser_view,
+            inputs=current_path_input,
+            outputs=[current_path_input, contents_state, file_list_radio]
+        )
+
+        # When the 'Up' button is clicked
+        up_btn.click(go_up, inputs=current_path_input, outputs=current_path_input)
+
+        # When an item is selected in the radio list
+        file_list_radio.select(
+            handle_selection,
+            inputs=[file_list_radio, current_path_input, contents_state],
+            outputs=[current_path_input, selected_path]
+        ).then(
+            # This .then() ensures the view is refreshed after a navigation or selection
+            fn=update_browser_view,
+            inputs=current_path_input,
+            outputs=[current_path_input, contents_state, file_list_radio]
+        )
+
+        # Button to copy the current folder path to the selection box
+        select_folder_btn.click(lambda x: x, inputs=current_path_input, outputs=selected_path)
+
+        # Final confirmation button
+        confirm_btn.click(confirm_selection, inputs=selected_path, outputs=status_output)
+        
+        # Initial load of the UI
+        demo.load(update_browser_view, inputs=current_path_input, outputs=[current_path_input, contents_state, file_list_radio])
+
+    return demo, selected_path
+
+
 if __name__ == "__main__":
-    # Test browser
-    print("=" * 60)
-    print("Enhanced File Browser Test")
-    print("=" * 60)
-    
-    # Test Pinokio path detection
-    pinokio_root = PinokioPathDetector.find_pinokio_root()
-    print(f"\nDetected Pinokio root: {pinokio_root}")
-    
-    # Test default paths
-    default_paths = ModelPathSelector.get_default_paths()
-    print(f"\nDefault paths:")
-    for name, path in default_paths.items():
-        print(f"  {name}: {path}")
-        print(f"    Exists: {path.exists()}")
-    
-    # Test browsing models
-    print(f"\nBrowsing bert_models:")
-    models = ModelPathSelector.browse_models()
-    for model in models[:5]:  # Show first 5
-        print(f"  - {model['name']} ({model['types']})")
-        print(f"    Path: {model['path']}")
-        print(f"    Size: {model['size'] / (1024*1024):.1f}MB")
-    
-    # Test file browser
-    print(f"\nEnhanced File Browser:")
-    browser = EnhancedFileBrowser()
-    files = browser.get_flat_file_list(
-        include_dirs=True,
-        model_type="torch",
-        search_term="bert"
-    )
-    print(f"Found {len(files)} items matching filters")
+    # Launch UI
+    print("\nLaunching File Browser UI...")
+    ui, _ = create_file_browser_ui()
+    ui.launch(show_error=True)

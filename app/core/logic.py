@@ -14,7 +14,7 @@ from configs.torchao_configs import get_quantization_config
 from settings.app_settings import DISTILLED_DIR, QUANTIZED_DIR, AUTO_DEVICE_SWITCHING, MIN_VRAM_GB
 from core.device_manager import get_device_manager
 from core.distillation import distill_model as distill_model_new
-from compression_toolkit import QuantizationToolkit
+from compression_toolkit import QuantizationToolkit, save_model_robust
 
 
 def _detect_model_architecture(model_path: str) -> str:
@@ -49,12 +49,35 @@ def _detect_model_architecture(model_path: str) -> str:
         if (model_path / "config.json").exists():
             with open(model_path / "config.json") as f:
                 config = json.load(f)
+                
+                # 1. Check model_type key (standard for Transformers)
                 model_type = config.get("model_type", "")
                 if model_type:
                     return "huggingface_nlp"
+                
+                # 2. Check for diffusers components via _class_name
+                class_name = config.get("_class_name", "")
+                if class_name:
+                    if any(x in class_name for x in ["UNet", "Autoencoder", "VAE", "CLIPText", "Scheduler"]):
+                        return "stable_diffusion_component"
+                
+                # 3. Check for recognized model keywords in folder name or architectural clues
+                recognized_path = Path(__file__).parent.parent / "configs" / "recognized_models.json"
+                if recognized_path.exists():
+                    with open(recognized_path) as rf:
+                        recognized_list = json.load(rf).get("recognized_models", [])
+                        folder_name = model_path.name.lower()
+                        # Check if folder name contains any recognized keywords
+                        if any(kw in folder_name for kw in recognized_list):
+                            return "huggingface_nlp"
+                        
+                        # Check if any keys in config match recognized types
+                        for key in config.keys():
+                            if any(kw in key.lower() for kw in recognized_list):
+                                return "huggingface_nlp"
         
         # Check if it's a single .pt or .bin file (not a directory with structure)
-        if str(model_path).endswith(('.pt', '.bin', '.ckpt')):
+        if str(model_path).endswith(('.pt', '.bin', '.ckpt', '.safetensors')):
             return "pytorch_weights"
         
         # Default to huggingface if directory exists with minimal structure
@@ -82,9 +105,9 @@ def _load_stable_diffusion_model(model_path: str, log_fn=None, device_manager=No
             StableDiffusionPipeline,
             UNet2DConditionModel,
             AutoencoderKL,
-            CLIPTextModel,
             StableDiffusionXLPipeline,
         )
+        from transformers import CLIPTextModel
     except ImportError:
         raise ImportError("diffusers library is required for Stable Diffusion models. Install with: pip install diffusers")
     
@@ -111,7 +134,37 @@ def _load_stable_diffusion_model(model_path: str, log_fn=None, device_manager=No
             
             return model, None
         
-        # Load individual components
+        # Check if it's a standalone component (direct folder)
+        if (model_path / "config.json").exists():
+            with open(model_path / "config.json") as f:
+                config = json.load(f)
+                class_name = config.get("_class_name", "")
+                
+                if "Autoencoder" in class_name or "VAE" in class_name:
+                    if log_fn: log_fn("Loading standalone VAE...")
+                    try:
+                        return AutoencoderKL.from_pretrained(str(model_path), torch_dtype=torch.float16, use_safetensors=True), None
+                    except Exception as e:
+                        if "diffusion_pytorch_model.safetensors" in str(e):
+                            if log_fn: log_fn("Safetensors not found, falling back to .bin weights...")
+                            return AutoencoderKL.from_pretrained(str(model_path), torch_dtype=torch.float16, use_safetensors=False), None
+                        raise e
+                
+                if "UNet" in class_name:
+                    if log_fn: log_fn("Loading standalone UNet...")
+                    try:
+                        return UNet2DConditionModel.from_pretrained(str(model_path), torch_dtype=torch.float16, use_safetensors=True), None
+                    except Exception as e:
+                        if "diffusion_pytorch_model.safetensors" in str(e):
+                            if log_fn: log_fn("Safetensors not found, falling back to .bin weights...")
+                            return UNet2DConditionModel.from_pretrained(str(model_path), torch_dtype=torch.float16, use_safetensors=False), None
+                        raise e
+                
+                if "CLIPText" in class_name:
+                    if log_fn: log_fn("Loading standalone Text Encoder...")
+                    return CLIPTextModel.from_pretrained(str(model_path), torch_dtype=torch.float16), None
+
+        # Load nested components
         elif (model_path / "unet").exists() or (model_path / "unet" / "config.json").exists():
             if log_fn:
                 log_fn("Loading UNet component...")
@@ -123,7 +176,14 @@ def _load_stable_diffusion_model(model_path: str, log_fn=None, device_manager=No
         elif (model_path / "vae").exists() or (model_path / "vae" / "config.json").exists():
             if log_fn:
                 log_fn("Loading VAE component...")
-            model = AutoencoderKL.from_pretrained(str(model_path / "vae"), torch_dtype=torch.float16)
+            try:
+                model = AutoencoderKL.from_pretrained(str(model_path / "vae"), torch_dtype=torch.float16, use_safetensors=True)
+            except Exception as e:
+                if "diffusion_pytorch_model.safetensors" in str(e):
+                    if log_fn: log_fn("Safetensors not found, falling back to .bin weights...")
+                    model = AutoencoderKL.from_pretrained(str(model_path / "vae"), torch_dtype=torch.float16, use_safetensors=False)
+                else:
+                    raise e
             if log_fn:
                 log_fn("✓ Loaded VAE component")
             return model, None
@@ -375,7 +435,7 @@ def distill_model(model, tokenizer, log_fn=None, device_manager=None):
 
 def save_model(model, tokenizer, out_dir, log_fn=None, label="model"):
     """
-    Save a model and tokenizer to the specified directory.
+    Save a model and tokenizer to the specified directory using the robust saver.
     
     Args:
         model: The model to save
@@ -384,22 +444,11 @@ def save_model(model, tokenizer, out_dir, log_fn=None, label="model"):
         log_fn: Optional logging function
         label: Label for logging purposes
     """
-    os.makedirs(out_dir, exist_ok=True)
-    
     if log_fn:
         log_fn(f"Saving {label} model to: {out_dir}")
     
-    if hasattr(model, "save_pretrained"):
-        model.save_pretrained(out_dir)
-    else:
-        torch.save(model, os.path.join(out_dir, "model.pt"))
-    
-    if tokenizer is not None:
-        try:
-            tokenizer.save_pretrained(out_dir)
-        except Exception as e:
-            if log_fn:
-                log_fn(f"Tokenizer save failed (ok if not HF): {e}")
+    save_model_robust(model, out_dir, tokenizer=tokenizer)
+
 
 
 def apply_quantization(model, quant_type: str, log_fn=None, device_manager=None, model_input_path=None, **kwargs):

@@ -7,6 +7,7 @@ from transformers import AutoTokenizer
 from model_loader import ModelLoader
 from registry import get_strategy, get_profile
 from distillation import PatientKD
+from compression_toolkit import save_model_robust # Import the robust save function
 
 from torchao.quantization import (
     quantize_,
@@ -131,9 +132,7 @@ def run_distillation_pipeline(
     
     # 4. Save distilled model
     distilled_model_dir = os.path.join(output_dir, "distilled")
-    os.makedirs(distilled_model_dir, exist_ok=True)
-    student_model.save_pretrained(distilled_model_dir)
-    student_tokenizer.save_pretrained(distilled_model_dir)
+    save_model_robust(student_model, distilled_model_dir, tokenizer=student_tokenizer)
     log_fn(f"Distilled model saved to {distilled_model_dir}")
 
     # 5. Apply quantization if specified
@@ -158,9 +157,7 @@ def run_distillation_pipeline(
             return
         
         quantized_model_dir = os.path.join(output_dir, "quantized")
-        os.makedirs(quantized_model_dir, exist_ok=True)
-        student_model.save_pretrained(quantized_model_dir)
-        student_tokenizer.save_pretrained(quantized_model_dir)
+        save_model_robust(student_model, quantized_model_dir, tokenizer=student_tokenizer)
         log_fn(f"Quantized model saved to {quantized_model_dir}")
 
 if __name__ == '__main__':

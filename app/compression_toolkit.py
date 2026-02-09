@@ -657,6 +657,90 @@ def compare_models(original: nn.Module, compressed: nn.Module) -> Dict[str, Any]
     }
 
 
+def save_model_robust(
+    model: nn.Module,
+    output_dir: str,
+    tokenizer: Optional[Any] = None,
+    use_safetensors: bool = True,
+    device: str = "cuda"
+) -> bool:
+    """
+    Robustly save a model, handling potential safetensors errors with fallbacks.
+
+    Args:
+        model: The model to save.
+        output_dir: Directory to save the model.
+        tokenizer: Optional tokenizer to save with the model.
+        use_safetensors: Whether to attempt saving with safetensors first.
+        device: The device the model is on ('cuda' or 'cpu').
+
+    Returns:
+        True if saving was successful, False otherwise.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+    
+    save_methods = []
+    if use_safetensors:
+        save_methods.append({"safe_serialization": True, "device": device})
+    
+    # Fallback to .bin
+    save_methods.append({"safe_serialization": False, "device": device})
+    
+    # Fallback to CPU saving if on CUDA
+    if device == "cuda":
+        if use_safetensors:
+            save_methods.append({"safe_serialization": True, "device": "cpu"})
+        save_methods.append({"safe_serialization": False, "device": "cpu"})
+
+    for config in save_methods:
+        try:
+            current_device = config['device']
+            safe_serialization = config.get('safe_serialization', False)
+            
+            logger.info(
+                f"Attempting to save model to {output_dir} "
+                f"(device: {current_device}, safetensors: {safe_serialization})"
+            )
+            
+            model_to_save = model
+            if current_device == "cpu" and device == "cuda":
+                logger.info("Moving model to CPU for saving...")
+                model_to_save = model.to("cpu")
+            
+            model_to_save.save_pretrained(
+                str(output_dir),
+                safe_serialization=safe_serialization
+            )
+
+            if tokenizer:
+                tokenizer.save_pretrained(str(output_dir))
+            
+            logger.info("✅ Model saved successfully!")
+
+            # Move model back to original device if it was moved
+            if current_device == "cpu" and device == "cuda":
+                model.to("cuda")
+                torch.cuda.empty_cache()
+
+            return True
+
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "invalid python storage" in error_msg:
+                logger.warning(
+                    "Safetensors save failed with storage error. "
+                    "This is common with quantized models. Trying fallback..."
+                )
+            else:
+                logger.error(f"Failed to save model: {e}")
+
+    logger.error("❌ All saving methods failed.")
+    return False
+
+
+
+
 if __name__ == "__main__":
     logger.info("Compression Toolkit Module Loaded Successfully!")
     logger.info("Available: QuantizationToolkit, PruningToolkit, DistillationToolkit, ExportToolkit, CompressionPipeline")

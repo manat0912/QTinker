@@ -86,7 +86,8 @@ def distill_teacher_student(
     max_steps: int = 100,
     learning_rate: float = 5e-5,
     temperature: float = 1.0,
-    alpha: float = 0.5
+    alpha: float = 0.5,
+    teacher_arch: str = "Causal LM"
 ) -> torch.nn.Module:
     """
     Perform teacher-student knowledge distillation.
@@ -119,17 +120,45 @@ def distill_teacher_student(
     if log_fn:
         log_fn(f"Loading teacher model from: {teacher_model_path}")
     
-    if teacher_type == "HuggingFace folder":
-        teacher = AutoModelForCausalLM.from_pretrained(
-            teacher_model_path,
-            torch_dtype=torch.float16,
-            low_cpu_mem_usage=True,
-            device_map="cpu"
-        )
-        teacher_tokenizer = AutoTokenizer.from_pretrained(teacher_model_path)
-    else:
-        teacher = torch.load(teacher_model_path, map_location="cpu")
-        teacher_tokenizer = student_tokenizer  # Fallback
+    # Use teacher_arch passed as argument
+    
+    try:
+        if teacher_type == "HuggingFace folder":
+            if teacher_arch == "Masked LM (BERT, RoBERTa)":
+                from transformers import AutoModelForMaskedLM
+                teacher = AutoModelForMaskedLM.from_pretrained(
+                    teacher_model_path,
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    device_map="cpu"
+                )
+            elif teacher_arch == "Generic AutoModel":
+                from transformers import AutoModel
+                teacher = AutoModel.from_pretrained(
+                    teacher_model_path,
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    device_map="cpu"
+                )
+            else: # Default to Causal LM
+                teacher = AutoModelForCausalLM.from_pretrained(
+                    teacher_model_path,
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    device_map="cpu"
+                )
+            teacher_tokenizer = AutoTokenizer.from_pretrained(teacher_model_path)
+        else:
+            teacher = torch.load(teacher_model_path, map_location="cpu", weights_only=False)
+            teacher_tokenizer = student_tokenizer  # Fallback
+    except Exception as e:
+        if log_fn:
+            log_fn(f"ERROR loading teacher model: {e}")
+        # Check for missing weights specific error and provide more info
+        if "pytorch_model.bin" in str(e) or "model.safetensors" in str(e):
+            if log_fn:
+                log_fn("TIP: Ensure the teacher folder contains the weights (pytorch_model.bin or model.safetensors).")
+        raise e
     
     if teacher_tokenizer is None:
         teacher_tokenizer = student_tokenizer
@@ -332,7 +361,8 @@ def distill_model(
             max_steps=distillation_config.get("max_steps", 100),
             learning_rate=distillation_config.get("learning_rate", 5e-5),
             temperature=distillation_config.get("temperature", 1.0),
-            alpha=distillation_config.get("alpha", 0.5)
+            alpha=distillation_config.get("alpha", 0.5),
+            teacher_arch=distillation_config.get("teacher_arch", "Causal LM")
         )
     
     else:

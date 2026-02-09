@@ -7,46 +7,6 @@ module.exports = {
       ]
     }
   }, {
-    method: "shell.run",
-    params: {
-      venv: "env",
-      path: "app",
-      message: [
-        "uv pip install gradio",
-      ],
-    }
-  }, {
-    method: "shell.run",
-    params: {
-      venv: "env",
-      path: "app",
-      message: [
-        "echo 'Installing core dependencies...'",
-        "uv pip install \"numpy<2\" scipy>=1.10.0 pyyaml>=6.0 requests>=2.31.0",
-      ],
-    }
-  }, {
-    method: "shell.run",
-    params: {
-      venv: "env",
-      path: "app",
-      message: [
-        "echo 'Installing transformer and diffusion models...'",
-        "uv pip install transformers>=4.30.0 accelerate>=0.20.0 diffusers>=0.21.0 safetensors>=0.3.0",
-      ],
-    }
-  }, {
-    method: "shell.run",
-    params: {
-      venv: "env",
-      path: "app",
-      message: [
-        "echo 'Installing quantization frameworks...'",
-        "uv pip install torchao>=0.2.0 auto-gptq>=0.7.0 bitsandbytes>=0.40.0",
-        "uv pip install autoawq>=0.2.0 --no-build-isolation",
-      ],
-    }
-  }, {
     method: "script.start",
     params: {
       uri: "torch.js",
@@ -56,6 +16,15 @@ module.exports = {
         xformers: false,
         triton: true
       }
+    }
+  }, {
+    method: "shell.run",
+    params: {
+      venv: "env",
+      path: "app",
+      message: [
+        "uv pip install -r requirements.txt"
+      ],
     }
   }, {
     method: "shell.run",

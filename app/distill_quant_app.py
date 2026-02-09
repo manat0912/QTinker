@@ -65,16 +65,50 @@ def save_model(model, tokenizer, out_dir, log_fn, label):
     os.makedirs(out_dir, exist_ok=True)
     log_fn(f"Saving {label} model to: {out_dir}")
 
-    if hasattr(model, "save_pretrained"):
-        model.save_pretrained(out_dir)
-    else:
+    if not hasattr(model, "save_pretrained"):
         torch.save(model, os.path.join(out_dir, "model.pt"))
+        if tokenizer:
+            log_fn("Cannot save tokenizer for non-Hugging Face model.")
+        return
 
-    if tokenizer is not None:
-        try:
+    # Robust saving logic for Hugging Face models
+    try:
+        # Try with safetensors first
+        log_fn("Attempting to save with safetensors...")
+        model.save_pretrained(out_dir, safe_serialization=True)
+        if tokenizer:
             tokenizer.save_pretrained(out_dir)
-        except Exception as e:
-            log_fn(f"Tokenizer save failed (ok if not HF): {e}")
+        log_fn("✅ Saved successfully with safetensors.")
+        return
+    except Exception as e:
+        log_fn(f"⚠️ Safetensors save failed: {e}. Trying fallback.")
+        if "invalid python storage" not in str(e).lower():
+            log_fn("Error was not the expected safetensors storage issue.")
+
+    try:
+        # Fallback 1: Save as .bin
+        log_fn("Attempting to save as .bin (safe_serialization=False)...")
+        model.save_pretrained(out_dir, safe_serialization=False)
+        if tokenizer:
+            tokenizer.save_pretrained(out_dir)
+        log_fn("✅ Saved successfully as .bin.")
+        return
+    except Exception as e1:
+        log_fn(f"⚠️ .bin save failed: {e1}. Trying CPU fallback.")
+
+    try:
+        # Fallback 2: Move to CPU and save as .bin
+        log_fn("Moving model to CPU and attempting to save as .bin...")
+        model.to("cpu")
+        model.save_pretrained(out_dir, safe_serialization=False)
+        if tokenizer:
+            tokenizer.save_pretrained(out_dir)
+        log_fn("✅ Saved successfully from CPU as .bin.")
+    except Exception as e2:
+        log_fn(f"❌ All saving methods failed: {e2}")
+        raise e2
+
+
 
 
 def apply_quantization(model, quant_type, log_fn):

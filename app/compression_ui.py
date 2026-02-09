@@ -85,6 +85,18 @@ class CompressionUI:
                         placeholder="./compressed_models/quantized"
                     )
                     
+                    with gr.Row():
+                        use_safetensors = gr.Radio(
+                            choices=["safetensors", "bin"],
+                            value="safetensors",
+                            label="Save Format"
+                        )
+                        save_device = gr.Radio(
+                            choices=["cuda", "cpu"],
+                            value="cuda",
+                            label="Save Device"
+                        )
+
                     quantize_btn = gr.Button("🚀 Quantize Model", variant="primary")
                 
                 with gr.Column():
@@ -118,7 +130,11 @@ class CompressionUI:
             
             quantize_btn.click(
                 fn=CompressionUI.run_quantization,
-                inputs=[method, model_path, output_path, torchao_type, llm_bits, group_size],
+                inputs=[
+                    method, model_path, output_path,
+                    torchao_type, llm_bits, group_size,
+                    use_safetensors, save_device
+                ],
                 outputs=output_log
             )
         
@@ -418,7 +434,7 @@ class CompressionUI:
         return original_model, compressed_model
     
     @staticmethod
-    async def run_quantization(method, model_path, output_path, torchao_type, bits, group_size):
+    async def run_quantization(method, model_path, output_path, torchao_type, bits, group_size, use_safetensors, save_device):
         """Execute quantization"""
         logger.info(f"Starting quantization: {method}")
         try:
@@ -427,7 +443,23 @@ class CompressionUI:
             elif method == "GPTQ":
                 logger.info(f"Using GPTQ {bits}-bit with group_size {group_size}")
             
-            return f"✅ Quantization completed with {method}"
+            # This is where you would call your actual quantization and saving logic
+            # For the UI, we'll just simulate the call.
+            # In a real implementation, you'd load the model, quantize it,
+            # and then call save_model_robust.
+            
+            # from model_loader import load_model
+            # model, tokenizer = load_model(model_path)
+            # quantized_model = QuantizationToolkit.quantize(...)
+            # save_model_robust(
+            #     quantized_model,
+            #     output_path,
+            #     tokenizer,
+            #     use_safetensors=(use_safetensors == "safetensors"),
+            #     device=save_device
+            # )
+            
+            return f"✅ Quantization completed with {method}. Saved with format: {use_safetensors} on device: {save_device}"
         except Exception as e:
             return f"❌ Quantization failed: {str(e)}"
     

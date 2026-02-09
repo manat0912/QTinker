@@ -4,6 +4,11 @@ import os
 
 def load_model_and_tokenizer(model_name_or_path, model_type):
     """Loads a model and tokenizer from a given path or name."""
+    # Handle file paths (e.g. from file picker) by using parent directory
+    if os.path.isfile(model_name_or_path):
+        print(f"Provided path is a file. Using parent directory: {os.path.dirname(model_name_or_path)}")
+        model_name_or_path = os.path.dirname(model_name_or_path)
+
     # Simple check if it's a local path
     if os.path.isdir(model_name_or_path):
         print(f"Loading {model_type} from local path: {model_name_or_path}")
