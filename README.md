@@ -42,6 +42,8 @@ A modern, production-ready application for distilling and quantizing language mo
 - 🔧 **Model Selection UI**: Interactive file pickers for teacher, student, and target models
 - 📊 **Registry System**: Comprehensive model registry for tracking supported architectures
 - 🔗 **Symbolic Linking**: Automatic model linking for seamless integration
+- ✨ **Robust Model Saving**: Automatically handles `safetensors` errors with fallbacks to `.bin` format and CPU-based saving to prevent crashes with quantized or modified models.
+- 📂 **Integrated File Browser**: A full-featured, in-app file and folder browser replaces native system dialogs, allowing for intuitive navigation and selection of whole model directories.
 
 ## Project Structure
 
