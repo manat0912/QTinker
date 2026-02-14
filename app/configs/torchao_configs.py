@@ -4,8 +4,6 @@ TorchAO quantization configurations.
 from torchao.quantization import (
     Int4WeightOnlyConfig,
     Int8DynamicActivationInt8WeightConfig,
-    int4_weight_only,
-    int8_dynamic_activation_int8_weight,
 )
 
 # NF4 support if available

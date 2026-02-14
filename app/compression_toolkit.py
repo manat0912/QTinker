@@ -351,8 +351,13 @@ class PruningToolkit:
             
             logger.info("SparseML pruning complete!")
         except ImportError:
-            logger.error("SparseML not installed. Install with: pip install sparseml")
-            raise
+            logger.error("SparseML is not installed (removed due to EOL). Please use other pruning methods.")
+            # raise  <-- Do not raise, just log error so app doesn't crash on load, but will fail if this specific method is called.
+            # Actually, if this method is called, we should probably raise or return. 
+            # Since the original code raised, we can keep raising but with a clearer message, 
+            # OR we can just return and let the caller handle it.
+            # Given the previous pattern was to raise, I will raise a clearer error.
+            raise RuntimeError("SparseML is not available. Please use Magnitude, Structured, or Global pruning instead.")
 
 
 class DistillationToolkit:

@@ -23,6 +23,10 @@ from registry import STRATEGY_REGISTRY
 from reference_guide import DISTILLATION_METHODS, QUANTIZATION_METHODS
 from core.quantizer import quantize_model
 from enhanced_file_browser import create_file_browser_ui
+from convert_onnx import convert_onnx_fp16, convert_onnx_int8
+from convert_pytorch import convert_pytorch_fp16, convert_pytorch_bf16
+from convert_tensorrt import convert_tensorrt
+from convert_openvino import convert_openvino
 
 def create_theme():
     """Create a custom dark theme with gradient background."""
@@ -245,6 +249,156 @@ def run_quantization_process(model_id, quant_level, progress=gr.Progress()):
         log_output.log("\n=== QUANTIZATION SUCCESS ===")
         # Return the folder zip path as a file for Gradio
         return log_output.log(""), gr.update(value=zip_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_onnx_int8_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the ONNX INT8 conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_onnx_int8(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted ONNX model saved to: {output_path}")
+        log_output.log("=== ONNX INT8 Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_pytorch_bf16_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the PyTorch BF16 conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_pytorch_bf16(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted PyTorch model saved to: {output_path}")
+        log_output.log("=== PyTorch BF16 Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_onnx_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the ONNX FP16 conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_onnx_fp16(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted ONNX model saved to: {output_path}")
+        log_output.log("=== ONNX FP16 Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_pytorch_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the PyTorch FP16 conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_pytorch_fp16(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted PyTorch model saved to: {output_path}")
+        log_output.log("=== PyTorch FP16 Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_tensorrt_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the TensorRT conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_tensorrt(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted TensorRT model saved to: {output_path}")
+        log_output.log("=== TensorRT Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
+
+    except Exception as e:
+        error_msg = f"ERROR: {str(e)}"
+        log_output.log(error_msg)
+        import traceback
+        log_output.log(traceback.format_exc())
+        return log_output.log(""), gr.update(visible=False)
+
+
+def run_openvino_conversion_process(model_path, progress=gr.Progress()):
+    """Wrapper for running the OpenVINO conversion pipeline from Gradio."""
+    log_output = LogOutput()
+
+    def log_fn(msg: str):
+        log_output.log(msg)
+        progress(0.5, desc=msg)
+
+    try:
+        if not model_path:
+            return "ERROR: Model Path is required."
+
+        output_path = convert_openvino(model_path, None, log_fn=log_fn)
+        log_output.log(f"✓ Converted OpenVINO model saved to: {output_path}")
+        log_output.log("=== OpenVINO Conversion SUCCESS ===")
+        return log_output.log(""), gr.update(value=output_path, visible=True)
 
     except Exception as e:
         error_msg = f"ERROR: {str(e)}"
@@ -487,6 +641,86 @@ def create_ui():
                     outputs=[bert_log_output]
                 )
 
+            with gr.TabItem("FP16 Conversion"):
+                gr.Markdown("## Model FP16 (Half-Precision) Conversion")
+                gr.Markdown(
+                    "Convert your ONNX and PyTorch models to FP16 (half-precision) to reduce file size and improve inference speed on supported hardware (like NVIDIA GPUs)."
+                )
+                with gr.Tabs():
+                    with gr.TabItem("ONNX to FP16"):
+                        with gr.Row():
+                            onnx_model_path_in = gr.Textbox(label="Input ONNX Model Path", placeholder="Select path from Browser tab...")
+                        
+                        onnx_quant_type = gr.Dropdown(choices=["FP16", "INT8"], label="ONNX Conversion Type", value="FP16")
+                        onnx_convert_btn = gr.Button("Convert ONNX", variant="primary")
+                        onnx_download = gr.File(label="Download Converted ONNX Model", visible=False)
+                        onnx_log_output = gr.Textbox(label="ONNX Conversion Log", lines=15, interactive=False)
+
+                        def onnx_conversion_dispatcher(model_path, quant_type):
+                            if quant_type == "INT8":
+                                return run_onnx_int8_conversion_process(model_path)
+                            return run_onnx_conversion_process(model_path)
+                        
+                        onnx_convert_btn.click(
+                            fn=onnx_conversion_dispatcher,
+                            inputs=[onnx_model_path_in, onnx_quant_type],
+                            outputs=[onnx_log_output, onnx_download]
+                        )
+
+                    with gr.TabItem("PyTorch Conversion"):
+                        with gr.Row():
+                            pytorch_model_path_in = gr.Textbox(label="Input PyTorch Model Path", placeholder="Select path from Browser tab...")
+
+                        pytorch_quant_type = gr.Dropdown(choices=["FP16", "BF16"], label="PyTorch Conversion Type", value="FP16")
+                        pytorch_convert_btn = gr.Button("Convert PyTorch", variant="primary")
+                        pytorch_download = gr.File(label="Download Converted PyTorch Model", visible=False)
+                        pytorch_log_output = gr.Textbox(label="PyTorch Conversion Log", lines=15, interactive=False)
+                        
+                        def pytorch_conversion_dispatcher(model_path, quant_type):
+                            if quant_type == "BF16":
+                                return run_pytorch_bf16_conversion_process(model_path)
+                            return run_pytorch_conversion_process(model_path)
+
+                        pytorch_convert_btn.click(
+                            fn=pytorch_conversion_dispatcher,
+                            inputs=[pytorch_model_path_in, pytorch_quant_type],
+                            outputs=[pytorch_log_output, pytorch_download]
+                        )
+            
+            with gr.TabItem("Hardware-Specific Conversion"):
+                gr.Markdown("## Hardware-Specific Model Conversions")
+                gr.Markdown(
+                    "Optimize your models for specific hardware targets like NVIDIA GPUs (TensorRT) or Intel CPUs/iGPUs (OpenVINO) for maximum performance."
+                )
+                with gr.Tabs():
+                    with gr.TabItem("NVIDIA TensorRT"):
+                        with gr.Row():
+                            tensorrt_model_path_in = gr.Textbox(label="Input PyTorch Model Path (.pth)", placeholder="Select path from Browser tab...")
+                        
+                        tensorrt_convert_btn = gr.Button("Convert to TensorRT", variant="primary")
+                        tensorrt_download = gr.File(label="Download Converted TensorRT Model", visible=False)
+                        tensorrt_log_output = gr.Textbox(label="TensorRT Conversion Log", lines=15, interactive=False)
+
+                        tensorrt_convert_btn.click(
+                            fn=run_tensorrt_conversion_process,
+                            inputs=[tensorrt_model_path_in],
+                            outputs=[tensorrt_log_output, tensorrt_download]
+                        )
+
+                    with gr.TabItem("Intel OpenVINO"):
+                        with gr.Row():
+                            openvino_model_path_in = gr.Textbox(label="Input Model Path (ONNX, PyTorch, etc.)", placeholder="Select path from Browser tab...")
+
+                        openvino_convert_btn = gr.Button("Convert to OpenVINO", variant="primary")
+                        openvino_download = gr.File(label="Download Converted OpenVINO Model", visible=False)
+                        openvino_log_output = gr.Textbox(label="OpenVINO Conversion Log", lines=15, interactive=False)
+
+                        openvino_convert_btn.click(
+                            fn=run_openvino_conversion_process,
+                            inputs=[openvino_model_path_in],
+                            outputs=[openvino_log_output, openvino_download]
+                        )
+
             with gr.TabItem("Quantize Any Model"):
                 gr.Markdown("## 🌌 AI Model Shrinker: Quantize Your Models!")
                 gr.Markdown(
@@ -532,6 +766,10 @@ def create_ui():
                     copy_to_bert_student = gr.Button("Use for BERT Student")
                     copy_to_bert_teacher = gr.Button("Use for BERT Teacher")
                     copy_to_quantize_input = gr.Button("Use for Quantize Input")
+                    copy_to_onnx_fp16_input = gr.Button("Use for ONNX FP16 Input")
+                    copy_to_pytorch_fp16_input = gr.Button("Use for PyTorch FP16 Input")
+                    copy_to_tensorrt_input = gr.Button("Use for TensorRT Input")
+                    copy_to_openvino_input = gr.Button("Use for OpenVINO Input")
                 
                 # Connect the browser's selected_path to the main UI textboxes
                 copy_to_student.click(lambda x: x, inputs=browser_selected_path, outputs=model_path)
@@ -539,6 +777,10 @@ def create_ui():
                 copy_to_bert_student.click(lambda x: x, inputs=browser_selected_path, outputs=bert_student_path)
                 copy_to_bert_teacher.click(lambda x: x, inputs=browser_selected_path, outputs=bert_teacher_path)
                 copy_to_quantize_input.click(lambda x: x, inputs=browser_selected_path, outputs=quant_model_id)
+                copy_to_onnx_fp16_input.click(lambda x: x, inputs=browser_selected_path, outputs=onnx_model_path_in)
+                copy_to_pytorch_fp16_input.click(lambda x: x, inputs=browser_selected_path, outputs=pytorch_model_path_in)
+                copy_to_tensorrt_input.click(lambda x: x, inputs=browser_selected_path, outputs=tensorrt_model_path_in)
+                copy_to_openvino_input.click(lambda x: x, inputs=browser_selected_path, outputs=openvino_model_path_in)
 
             with gr.TabItem("Reference Guide"):
                 gr.Markdown("## Comprehensive Method Maps")

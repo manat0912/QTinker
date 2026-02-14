@@ -23,7 +23,7 @@ module.exports = {
       venv: "env",
       path: "app",
       message: [
-        "uv pip install -r requirements.txt"
+        "uv pip install --no-deps -r requirements.txt"
       ],
     }
   }, {
@@ -43,7 +43,7 @@ module.exports = {
       path: "app",
       message: [
         "echo 'Installing ONNX optimization and export tools...'",
-        "uv pip install optimum[onnx]>=1.13.0 onnx-simplifier>=0.4.33 onnx>=1.14.0 onnxruntime>=1.16.0",
+        "uv pip install optimum[onnx]>=1.13.0 onnx-simplifier>=0.4.33 onnx>=1.14.0 onnxconverter-common>=1.14.0 onnxruntime>=1.16.0",
       ],
     }
   }, {
@@ -53,7 +53,7 @@ module.exports = {
       path: "app",
       message: [
         "echo 'Installing Intel Neural Compressor for automated optimization...'",
-        "uv pip install neural-compressor>=3.1.0 neural-speed>=2.0.0",
+        "uv pip install neural-compressor>=3.1.0 neural-speed>=1.0",
       ],
     }
   }, {
@@ -67,6 +67,34 @@ module.exports = {
       ],
     }
   }, {
+    "when": "{{gpu === 'nvidia' && platform === 'win32'}}",
+    "method": "shell.run",
+    "params": {
+      "message": "echo 'Checking for TensorRT zip file...'",
+    }
+  }, {
+    "when": "{{gpu === 'nvidia' && platform === 'win32' && !exists('app/TensorRT.zip')}}",
+    "method": "input",
+    "params": {
+      "title": "TensorRT Download Required",
+      "description": "Please download TensorRT for Windows (CUDA 12.x) from NVIDIA Developer (requires login), rename it to 'TensorRT.zip', and place it in the 'app' folder.\n\nLink: https://developer.nvidia.com/tensorrt-download\n\nOnce the file 'app/TensorRT.zip' exists, click 'Confirm' to continue.",
+      "form": [
+        {
+          "key": "confirm",
+          "type": "text",
+          "label": "I have placed the file in app/TensorRT.zip (Type 'yes')",
+          "placeholder": "yes"
+        }
+      ]
+    }
+  }, {
+    "when": "{{gpu === 'nvidia' && platform === 'win32'}}",
+    "method": "shell.run",
+    "params": {
+      "path": "app",
+      "message": "tar -xf TensorRT.zip"
+    }
+  }, {
     method: "shell.run",
     params: {
       venv: "env",
@@ -74,6 +102,8 @@ module.exports = {
       message: [
         "echo 'Installing framework support libraries...'",
         "{{platform === 'darwin' ? 'uv pip install tensorflow>=2.10.0' : 'uv pip install tensorflow-cpu>=2.10.0'}}",
+        "{{platform === 'win32' ? 'for /d %i in (TensorRT*) do set PATH=%CD%\\%i\\lib;%PATH%' : ''}}",
+        "{{platform === 'win32' ? 'uv pip install torch-tensorrt --index-url https://download.pytorch.org/whl/cu128 --no-deps' : 'uv pip install torch-tensorrt'}}"
       ],
     }
   }, {
@@ -105,6 +135,8 @@ module.exports = {
         "echo 'Downloading BERT models...'",
         "git clone --depth 1 https://github.com/google-research/bert bert_models/google_research_bert",
         "git clone --depth 1 https://github.com/huawei-noah/Pretrained-Language-Model bert_models/huawei_noah_bert",
+        "echo 'Cloning Wanda Pruning tool...'",
+        "git clone --depth 1 https://github.com/locuslab/wanda.git wanda"
       ]
     }
   }, {
@@ -135,6 +167,17 @@ module.exports = {
         "python -c \"from universal_model_loader import PinokioPathDetector; print(f'Pinokio root detected: {PinokioPathDetector.find_pinokio_root()}')\"",
         "python -c \"from enhanced_file_browser import ModelPathSelector; paths = ModelPathSelector.get_default_paths(); print(f'Teacher models: {paths[\\\"teacher_root\\\"]}'); print(f'Custom models: {paths[\\\"custom_root\\\"]}')\""
       ]
+    }
+  }, {
+    method: "script.start",
+    params: {
+      uri: "torch.js",
+      params: {
+        venv: "env",
+        path: "app",
+        xformers: false,
+        triton: true
+      }
     }
   }, {
     method: "notify",
